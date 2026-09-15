@@ -219,7 +219,10 @@
     [:default              {:optional true} [:or :string :int :boolean]]
     [:placeholder          {:optional true} [:or :string :int :boolean]]
     [:treat-before-posting {:optional true} :string]
-    [:visible-if           {:optional true} [:map-of :string [:or :string :boolean [:sequential :string]]]]]])
+    [:visible-if           {:optional true} [:map-of :string [:or :string :boolean [:sequential :string]]]]
+    [:options              {:optional true} [:sequential [:map {:closed true}
+                                                          [:name  :string]
+                                                          [:value :string]]]]]])
 
 (mr/def ::driver-info
   "The `driver:` section of a plugin manifest, whose keys are the plugin author's."
