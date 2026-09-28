@@ -8,6 +8,7 @@
    [metabase.metabot.api :as metabot.api]
    [metabase.metabot.conversation-title :as conversation-title]
    [metabase.metabot.persistence :as metabot.persistence]
+   [metabase.metabot.self :as metabot.self]
    [metabase.test :as mt]
    [toucan2.core :as t2]))
 
@@ -526,14 +527,18 @@
                      :model/MetabotMessage _a {:conversation_id convo-id :user_id user-id :role "assistant"
                                                :external_id (str (random-uuid))
                                                :finished true :finish_reason "length"
+                                               :context_tokens 150
                                                :data [{:type "text" :text "cut o"}]
                                                :created_at (seconds-ago 50)}]
-        (let [messages (:messages (mt/user-http-request :rasta :get 200
-                                                        (str "metabot/conversations/" convo-id)))
-              status   (:status (second messages))]
-          (is (= {:type "incomplete" :finishReason "length"} status))
-          (is (not (contains? status :contextWindowFull))
-              "the backend does not derive whether the context window was full"))))))
+        (let [status-at-window (fn [window]
+                                 (mt/with-dynamic-fn-redefs [metabot.self/context-window-tokens (constantly window)]
+                                   (-> (mt/user-http-request :rasta :get 200 (str "metabot/conversations/" convo-id))
+                                       :messages second :status)))]
+          (testing "with room left in the window, the turn reads as a plain length stop"
+            (is (= {:type "incomplete" :finishReason "length"} (status-at-window 1000))))
+          (testing "with the window full, it carries the flag the client alerts on, as the live stream does"
+            (is (= {:type "incomplete" :finishReason "length" :contextWindowFull true}
+                   (status-at-window 100)))))))))
 
 (deftest fork-conversation-from-incomplete-turn-test
   (testing "POST /api/metabot/conversations/:id/fork forks from a turn that stopped early"
@@ -546,18 +551,20 @@
                                                :created_at (seconds-ago 60)}
                      :model/MetabotMessage _a {:conversation_id convo-id :user_id user-id :role "assistant"
                                                :external_id a1 :finished true :finish_reason "length"
+                                               :context_tokens 150
                                                :data [{:type "text" :text "cut o"}]
                                                :created_at (seconds-ago 50)}]
-        (let [response (mt/user-http-request :rasta :post 200
-                                             (str "metabot/conversations/" convo-id "/fork")
-                                             {:message_id a1})
+        (let [response (mt/with-dynamic-fn-redefs [metabot.self/context-window-tokens (constantly 100)]
+                         (mt/user-http-request :rasta :post 200
+                                               (str "metabot/conversations/" convo-id "/fork")
+                                               {:message_id a1}))
               new-id   (:conversation_id response)]
           (try
             (testing "the clone keeps the reason"
               (is (= [nil "length"]
                      (mapv :finish_reason (metabot.persistence/live-messages new-id)))))
-            (testing "so the forked conversation still reads as incomplete"
-              (is (= {:type "incomplete" :finishReason "length"}
+            (testing "so the forked conversation still reads as incomplete, with a full window"
+              (is (= {:type "incomplete" :finishReason "length" :contextWindowFull true}
                      (:status (second (:messages response))))))
             (finally
               (t2/delete! :model/MetabotMessage :conversation_id new-id)

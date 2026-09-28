@@ -979,7 +979,7 @@
                                                :data [{:type "text" :text "partial"}]}))]
           (is (= {:type "incomplete" :finishReason reason} status))
           (is (not (contains? status :contextWindowFull))
-              "the backend does not derive whether the context window was full")))))
+              "the row alone can't tell; `mark-context-window-full` adds it against the window")))))
   (testing "a content-filtered turn with no text still carries the status the FE alerts on"
     (let [message (client-message {:role :assistant :finished true :finish_reason "content-filter"
                                    :data []})]
@@ -993,6 +993,25 @@
     (is (= {:type "done"}
            (:status (client-message {:role :assistant :finished true :finish_reason "quantum-foam"
                                      :data []}))))))
+
+(deftest ^:parallel mark-context-window-full-test
+  (let [message (fn [status tokens] (cond-> {:status status} tokens (assoc :contextTokens tokens)))
+        length  {:type "incomplete" :finishReason "length"}
+        flagged (assoc length :contextWindowFull true)
+        mark    (fn [status tokens window]
+                  (:status (first (metabot-persistence/mark-context-window-full [(message status tokens)] window))))]
+    (testing "a length stop whose context reached the window is flagged, as the live stream flags it"
+      (is (= flagged (mark length 100 100)))
+      (is (= flagged (mark length 150 100))))
+    (testing "a length stop with room left is a plain max-output truncation"
+      (is (= length (mark length 99 100))))
+    (testing "without a usable token count or window there is nothing to judge"
+      (is (= length (mark length nil 100)))
+      (is (= length (mark length 0 100)))
+      (is (= length (mark length 150 nil))))
+    (testing "only length stops can mean a full window"
+      (doseq [status [{:type "incomplete" :finishReason "content-filter"} {:type "done"} {:type "errored" :error "x"}]]
+        (is (= status (mark status 150 100)))))))
 
 (deftest messages->client-messages-errored-pairs-test
   (testing "by default, errored assistant rows and the preceding user prompt are dropped"

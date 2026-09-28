@@ -203,7 +203,9 @@
     [:map
      [:type         [:= "incomplete"]]
      ;; why the model stopped before finishing; the client turns it into its own copy
-     [:finishReason [:enum "length" "content-filter" "tool-calls"]]]]
+     [:finishReason [:enum "length" "content-filter" "tool-calls"]]
+     ;; the turn stopped at `length` because the context window was full
+     [:contextWindowFull {:optional true} :boolean]]]
    ["errored"
     [:map
      [:type  [:= "errored"]]

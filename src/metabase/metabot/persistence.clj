@@ -762,6 +762,25 @@
            (recur (rest turns) parent-id client-messages)))
        client-messages))))
 
+(defn- context-window-full?
+  "Whether `message` stopped at `length` with its context already at or past `window`."
+  [{:keys [status contextTokens]} window]
+  (and (= "incomplete" (:type status))
+       (= "length" (:finishReason status))
+       (pos-int? contextTokens)
+       (>= contextTokens window)))
+
+(defn mark-context-window-full
+  "Flag each client message that stopped at `length` because its context filled `window`.
+
+  Sets `:contextWindowFull true` on its status. Returns `messages` unchanged when
+  `window` is nil."
+  [messages window]
+  (if (pos-int? window)
+    (mapv #(cond-> % (context-window-full? % window) (assoc-in [:status :contextWindowFull] true))
+          messages)
+    messages))
+
 (defn conversation-detail
   "Conversation-with-chat-messages snapshot. Nil if not found.
 
