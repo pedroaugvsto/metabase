@@ -3460,8 +3460,8 @@
                                         :h2       ""))]))))))))
 
 (deftest metabot-message-finish-reason-column-test
-  (testing "v65.2026-09-16T00:00:00: metabot_message gains a nullable finish_reason, and finished is left alone"
-    (impl/test-migrations ["v65.2026-09-16T00:00:00"] [migrate!]
+  (testing "v65.2026-09-28T00:00:00: metabot_message gains a nullable finish_reason, and finished is left alone"
+    (impl/test-migrations ["v65.2026-09-28T00:00:00"] [migrate!]
       (let [user-id         (t2/insert-returning-pk! :core_user {:first_name    "Finish"
                                                                  :last_name     "Reason"
                                                                  :email         "finish-reason@test.com"
@@ -3491,8 +3491,16 @@
         (testing "the column exists and every pre-migration row reads NULL"
           (is (contains? (message completed) :finish_reason))
           (is (nil? (:finish_reason (message completed))))
+          (is (nil? (:finish_reason (message aborted))))
           (is (nil? (:finish_reason (message in-flight)))))
         (testing "finished keeps its value: true completed, false client-aborted, NULL in flight"
           (is (true? (:finished (message completed))))
           (is (false? (:finished (message aborted))))
-          (is (nil? (:finished (message in-flight)))))))))
+          (is (nil? (:finished (message in-flight)))))
+        (testing "the column stores a reason"
+          (t2/update! :metabot_message completed {:finish_reason "content-filter"})
+          (is (= "content-filter" (:finish_reason (message completed)))))
+        (testing "rolling back drops the column and keeps the rows"
+          (migrate! :down 64)
+          (is (not (contains? (message completed) :finish_reason)))
+          (is (true? (:finished (message completed)))))))))
