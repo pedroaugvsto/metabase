@@ -3660,8 +3660,6 @@
            warehouse-schema-overlay}
    :model-imports #{:model/Card
                     :model/Collection
-                    :model/DataPermissions
-                    :model/Database
                     :model/Permissions
                     :model/PermissionsGroup
                     :model/Table}}
