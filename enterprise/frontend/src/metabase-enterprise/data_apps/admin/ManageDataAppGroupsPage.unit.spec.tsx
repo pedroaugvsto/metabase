@@ -4,7 +4,11 @@ import fetchMock from "fetch-mock";
 import { renderWithProviders, screen, waitFor, within } from "__support__/ui";
 import { UndoListing } from "metabase/common/components/UndoListing";
 import { Route } from "metabase/router";
-import type { DataApp, DataAppGroup } from "metabase-types/api";
+import type {
+  DataApp,
+  DataAppGroup,
+  DataAppGroupPermissionWarning,
+} from "metabase-types/api";
 import { createMockDataApp, createMockGroup } from "metabase-types/api/mocks";
 
 import { ManageDataAppGroupsPage } from "./ManageDataAppGroupsPage";
@@ -25,10 +29,14 @@ const setup = ({
   app = createMockDataApp(),
   groups = [],
   failFirstAdd = false,
+  warnings = [],
+  warningsError = false,
 }: {
   app?: DataApp;
   groups?: DataAppGroup[];
   failFirstAdd?: boolean;
+  warnings?: DataAppGroupPermissionWarning[];
+  warningsError?: boolean;
 } = {}) => {
   let assigned = [...groups];
   fetchMock.get("path:/api/apps", [app]);
@@ -38,6 +46,13 @@ const setup = ({
   );
   fetchMock.get("path:/api/apps/sales/groups", () => assigned);
   fetchMock.get("path:/api/permissions/group", candidates);
+  fetchMock.get("path:/api/apps/sales/group-permission-warnings", () =>
+    warningsError
+      ? 500
+      : warnings.filter((warning) =>
+          assigned.some((group) => group.id === warning.group_id),
+        ),
+  );
   fetchMock.post("path:/api/apps/sales/groups", ({ options: { body } }) => {
     if (failFirstAdd) {
       failFirstAdd = false;
@@ -105,6 +120,130 @@ describe("ManageDataAppGroupsPage", () => {
     ).toBeInTheDocument();
     expect(fetchMock.callHistory.called("path:/api/apps/sales")).toBe(false);
 
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Finches" }),
+    );
+
+    expect(
+      await screen.findByText("No groups have access yet"),
+    ).toBeInTheDocument();
+  });
+
+  const warning = {
+    group_id: 3,
+    missing_tables: [
+      {
+        id: 10,
+        name: "Orders",
+        schema: "public",
+        database_id: 1,
+        database_name: "Birds",
+      },
+    ],
+  };
+
+  it("shows missing tables for assigned groups on hover", async () => {
+    setup({
+      groups: [{ id: 3, name: "Finches", member_count: 0 }],
+      warnings: [warning],
+    });
+
+    await userEvent.hover(
+      await screen.findByRole("button", { name: "Missing data access" }),
+    );
+
+    expect(
+      screen.getByRole("columnheader", { name: "Data access" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Finches doesn’t have permission to view these tables used in this app:",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Orders" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/admin/permissions/data"),
+    );
+
+    await userEvent.hover(screen.getByRole("link", { name: "Orders" }));
+
+    expect(screen.getByRole("link", { name: "Orders" })).toBeVisible();
+
+    await userEvent.unhover(screen.getByRole("link", { name: "Orders" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("link", { name: "Orders" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("leaves adequate groups unmarked and clears a removed group's warning", async () => {
+    setup({
+      groups: [
+        { id: 3, name: "Finches", member_count: 0 },
+        { id: 4, name: "Owls", member_count: 2 },
+      ],
+      warnings: [warning],
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Missing data access" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("row", { name: /Owls/ })).queryByRole("button", {
+        name: "Missing data access",
+      }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Finches" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Missing data access" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove Owls" }),
+    ).toBeInTheDocument();
+  });
+
+  it("checks access only after assigning the selected group", async () => {
+    setup({ warnings: [warning] });
+    await openPicker();
+    await userEvent.click(screen.getByRole("option", { name: "Finches" }));
+
+    expect(
+      fetchMock.callHistory.called(
+        "path:/api/apps/sales/group-permission-warnings",
+      ),
+    ).toBe(false);
+    expect(
+      screen.queryByRole("button", { name: "Missing data access" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add", exact: true }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Missing data access" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps removal available when the warning check fails", async () => {
+    setup({
+      groups: [{ id: 3, name: "Finches", member_count: 0 }],
+      warningsError: true,
+    });
+
+    expect(
+      await screen.findByText(
+        "We couldn't check data access for assigned groups. You can still update access to this data app.",
+      ),
+    ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: "Remove Finches" }),
     );

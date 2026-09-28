@@ -109,6 +109,7 @@ const DataAppGroups = ({
         }
       >
         <DataAppGroupList
+          appName={appName}
           isAdding={isAdding}
           groups={groups}
           onAddGroups={handleAddGroups}
