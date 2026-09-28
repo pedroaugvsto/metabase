@@ -3657,13 +3657,13 @@
            request
            settings
            util
-           warehouse-schema-overlay}
+           warehouse-schema-overlay
+           enterprise/permissions.impersonation
+           enterprise/permissions.sandbox}
    :model-imports #{:model/Card
                     :model/Collection
-                    :model/ConnectionImpersonation
                     :model/Permissions
                     :model/PermissionsGroup
-                    :model/Sandbox
                     :model/Table}}
 
   enterprise/data-studio
@@ -4016,7 +4016,7 @@
   enterprise/permissions.impersonation
   {:team "Graphy"
    :ns-prefix "metabase-enterprise.impersonation"
-   :api #{metabase-enterprise.impersonation.api}
+   :api #{metabase-enterprise.impersonation.api metabase-enterprise.impersonation.core}
    :uses #{api
            audit-app
            driver
@@ -4034,7 +4034,7 @@
   enterprise/permissions.sandbox
   {:team "UX West"
    :ns-prefix "metabase-enterprise.sandbox"
-   :api #{metabase-enterprise.sandbox.api.routes metabase-enterprise.sandbox.api.util metabase-enterprise.sandbox.schema}
+   :api #{metabase-enterprise.sandbox.api.routes metabase-enterprise.sandbox.api.util metabase-enterprise.sandbox.core metabase-enterprise.sandbox.schema}
    :uses #{api
            api-scope
            app-db
