@@ -440,6 +440,19 @@
                       :usage             {:promptTokens 12 :completionTokens 3}}]
                     (chunks-of-type :usage chunks)))))))))
 
+(deftest ^:parallel chunks-xf-repeated-error-finish-reason-emits-one-error-test
+  (testing "a finish reason repeated on the usage chunk, as OpenRouter sends it, still emits one :error chunk"
+    (let [chunks (into [] (openrouter/openrouter->aisdk-chunks-xf)
+                       [{:id      "chatcmpl-err"
+                         :model   "m"
+                         :choices [{:index 0 :delta {:role "assistant" :content "Here's what I fou"} :finish_reason nil}]}
+                        {:choices [{:index 0 :delta {} :finish_reason "error"}]}
+                        {:choices [{:index 0 :delta {} :finish_reason "error"}]
+                         :usage   {:prompt_tokens 12 :completion_tokens 3}}])]
+      (is (= 1 (count (chunks-of-type :error chunks))))
+      (is (=? [{:type :usage :finish-reason "error" :raw-finish-reason "error"}]
+              (chunks-of-type :usage chunks))))))
+
 (deftest ^:parallel chunks-xf-non-error-finish-reasons-emit-no-error-test
   (testing "a finish reason that does not translate to \"error\" emits no :error chunk"
     (doseq [raw ["stop" "length" "tool_calls" "content_filter"]]

@@ -237,7 +237,9 @@
           (let [choice        (first choices)
                 delta         (:delta choice)
                 finish-reason (:finish_reason choice)
-                error-text    (finish-reason-error-text stop-reasons finish-reason)
+                ;; OpenRouter repeats the finish reason on its usage chunk; only the first may raise the error.
+                error-text    (when-not @stop-reason
+                                (finish-reason-error-text stop-reasons finish-reason))
                 tool-call     (first (:tool_calls delta))
                 reasoning-md  (:reasoning_metadata delta)
                 ;; Determine what kind of content this chunk carries.
