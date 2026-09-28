@@ -63,6 +63,7 @@ export function getTableCellClickedObject(
     if (columnIndex === 0 && pivotedRow._dimension) {
       const { value: dimensionValue, column: col } = pivotedRow._dimension;
       return {
+        isTableCell: true,
         value: dimensionValue,
         column: col,
         settings,
@@ -70,6 +71,7 @@ export function getTableCellClickedObject(
       };
     } else {
       return {
+        isTableCell: true,
         value,
         column: pivotedColumn,
         settings,
@@ -81,6 +83,7 @@ export function getTableCellClickedObject(
     }
   } else if (column.source === "aggregation") {
     return {
+      isTableCell: true,
       value,
       column,
       settings,
@@ -95,6 +98,7 @@ export function getTableCellClickedObject(
     // stage. In that case, column.source will be something like "fields", and it's up to Lib.availableDrillThrus
     // to check the underlying column and construct the dimensions from the passed in clickedRowData.
     return {
+      isTableCell: true,
       value,
       column,
       settings,

@@ -197,6 +197,10 @@ export function getClickBehavior(
     return columnClickBehavior;
   }
 
+  if (clicked?.isTableCell) {
+    return settings.click_behavior;
+  }
+
   const dimensionClickBehavior = (clicked?.dimensions || [])
     .map((dimension) => getColumnClickBehavior(settings, dimension.column))
     .find(Boolean);

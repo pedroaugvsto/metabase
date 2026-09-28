@@ -124,6 +124,7 @@ describe("metabase/visualization/lib/table", () => {
             null,
           ),
         ).toEqual({
+          isTableCell: true,
           value: 0,
           column: RAW_COLUMN,
           settings: {},
@@ -150,6 +151,7 @@ describe("metabase/visualization/lib/table", () => {
             null,
           ),
         ).toEqual({
+          isTableCell: true,
           value: 1,
           column: DIMENSION_COLUMN,
           origin: {
@@ -176,6 +178,7 @@ describe("metabase/visualization/lib/table", () => {
             null,
           ),
         ).toEqual({
+          isTableCell: true,
           value: 2,
           column: METRIC_COLUMN,
           dimensions: [
@@ -254,6 +257,7 @@ describe("metabase/visualization/lib/table", () => {
             getTableClickedObjectRowData(series, 0, 2, true, pivotedData),
           ),
         ).toEqual({
+          isTableCell: true,
           value: 20,
           column: PAID_METRIC_COLUMN,
           settings: {},

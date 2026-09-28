@@ -1,10 +1,14 @@
-import type { ComputedVisualizationSettings } from "metabase/viz-core";
+import {
+  type ComputedVisualizationSettings,
+  getTableCellClickedObject,
+} from "metabase/viz-core";
 import Question from "metabase-lib/v1/Question";
 import type { ClickBehavior } from "metabase-types/api";
 import {
   createMockCard,
   createMockColumn,
   createMockDashboard,
+  createMockDatasetData,
   createMockParameter,
 } from "metabase-types/api/mocks";
 
@@ -55,6 +59,39 @@ function buildSettings({
 }
 
 describe("getClickBehavior", () => {
+  it("only uses a table column's click behavior for cells in that column (#82956)", () => {
+    const data = createMockDatasetData({
+      cols: [
+        createMockColumn({ ...dimensionColumn, source: "breakout" }),
+        createMockColumn({ ...metricColumn, source: "aggregation" }),
+        createMockColumn({ name: "sum", source: "aggregation" }),
+      ],
+      rows: [["Gadget", 42, 100]],
+    });
+    const settings = buildSettings({
+      columns: { CATEGORY: dimensionClickBehavior },
+    });
+    const rowData = data.cols.map((col, index) => ({
+      col,
+      value: data.rows[0][index],
+    }));
+    const clicks = data.cols.map((_, columnIndex) => ({
+      ...getTableCellClickedObject(
+        data,
+        settings,
+        0,
+        columnIndex,
+        false,
+        rowData,
+      ),
+      extraData: { dashboard: createMockDashboard(), parameters: [] },
+    }));
+
+    expect(getDashboardDrillType(clicks[0])).toBe("dashboard-filter");
+    expect(getDashboardDrillType(clicks[1])).toBeNull();
+    expect(getDashboardDrillType(clicks[2])).toBeNull();
+  });
+
   it("uses click behavior configured on the clicked column", () => {
     const clickBehavior = getClickBehavior({
       column: metricColumn,

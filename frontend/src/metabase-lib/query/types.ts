@@ -603,6 +603,7 @@ export type BrushRange =
     };
 
 export interface ClickObject {
+  isTableCell?: boolean;
   value?: RowValue;
   column?: DatasetColumn;
   dimensions?: ClickObjectDimension[];
