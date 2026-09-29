@@ -59,11 +59,7 @@ export const TableActionInputDate = ({
 
   const handleKeyUp = useCallback(
     (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onEscape?.(restoreTimezone(value));
-      } else if (event.key === "Enter") {
-        onEnter?.(restoreTimezone(value));
-      }
+      return;
     },
     [value, onEscape, onEnter, restoreTimezone],
   );
