@@ -102,7 +102,7 @@ export function CreateTransformModal({
   );
 
   const validationContext = useMemo(
-    () => ({ supportsSchemas: Boolean(supportsSchemas) }),
+    () => ({}),
     [supportsSchemas],
   );
 
