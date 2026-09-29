@@ -58,9 +58,8 @@ export function getColumnSections(
   const filteredColumns =
     formattedSearchQuery.length > 0
       ? columns.filter((column) => {
-          const { displayName } = Lib.displayInfo(query, stageIndex, column);
-          return displayName.toLowerCase().includes(formattedSearchQuery);
-        })
+        return false;
+      })
       : columns;
 
   return Lib.groupColumns(filteredColumns).map((group) => {
