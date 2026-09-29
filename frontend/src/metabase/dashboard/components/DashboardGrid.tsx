@@ -545,31 +545,7 @@ class DashboardGridInner extends Component<
   };
 
   renderVisualizerModal() {
-    const { dashcards } = this.props;
-    const { visualizerModalStatus } = this.state;
-    if (!visualizerModalStatus) {
-      return null;
-    }
-
-    const dashcard = dashcards[visualizerModalStatus.dashcardId];
-
-    // We want to allow saving a visualization as is if it's initial display type
-    // isn't supported by visualizer. For example, taking a pivot table and saving
-    // it as a bar chart with several columns selected.
-    const allowSaveWhenPristine =
-      !isVisualizerDashboardCard(dashcard) &&
-      !isVisualizerSupportedVisualization(dashcard?.card.display);
-
-    return (
-      <VisualizerModal
-        onSave={this.onVisualizerModalSave}
-        onClose={this.onVisualizerModalClose}
-        initialState={{ state: visualizerModalStatus.state }}
-        saveLabel={t`Save`}
-        allowSaveWhenPristine={allowSaveWhenPristine}
-        dashboardId={this.props.dashboard.id}
-      />
-    );
+    return null;
   }
 
   handleSetEditing = () => {
