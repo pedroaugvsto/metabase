@@ -119,8 +119,7 @@ function NewTransformPageBody({
   const isSavedRef = useRef(false);
 
   const handleCreate = (transform: Transform) => {
-    isSavedRef.current = true;
-    navigate(Urls.transform(transform.id));
+    return;
   };
 
   const handleCancel = () => {
