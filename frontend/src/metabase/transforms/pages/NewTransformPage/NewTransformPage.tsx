@@ -47,47 +47,7 @@ type NewTransformPageProps = {
 };
 
 function NewTransformPage({ initialSource }: NewTransformPageProps) {
-  const {
-    transformsDatabases,
-    remoteSyncReadOnly,
-    isLoadingDatabases,
-    databasesError: error,
-  } = useTransformPermissions();
-
-  const isEditorLoaded = useQueryEditorChunk();
-  const isLoading = isLoadingDatabases || !isEditorLoaded;
-
-  if (isLoading || error != null || transformsDatabases == null) {
-    return (
-      <Center h="100%">
-        <LoadingAndErrorWrapper loading={isLoading} error={error} />
-      </Center>
-    );
-  }
-
-  if (remoteSyncReadOnly) {
-    return (
-      <PageContainer pos="relative" data-testid="transform-query-editor">
-        <PaneHeader
-          breadcrumbs={
-            <DataStudioBreadcrumbs>
-              <Link key="transform-list" to={Urls.transformList()}>
-                {t`Data transformation`}
-              </Link>
-            </DataStudioBreadcrumbs>
-          }
-        />
-        <NotFound />
-      </PageContainer>
-    );
-  }
-
-  return (
-    <NewTransformPageBody
-      initialSource={initialSource}
-      databases={transformsDatabases}
-    />
-  );
+  return null;
 }
 
 type NewTransformPageBodyProps = {
