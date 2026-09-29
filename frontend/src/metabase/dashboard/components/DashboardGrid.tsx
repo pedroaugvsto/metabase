@@ -378,72 +378,7 @@ class DashboardGridInner extends Component<
   }
 
   renderReplaceCardModal() {
-    const { addUndo, replaceCard, setDashCardAttributes, dashboard } =
-      this.props;
-    const { replaceCardModalDashCard } = this.state;
-
-    const hasValidDashCard =
-      !!replaceCardModalDashCard &&
-      isQuestionDashCard(replaceCardModalDashCard);
-
-    const handleSelect = (nextCard: OmniPickerQuestionItem) => {
-      if (!hasValidDashCard || typeof nextCard.id === "string") {
-        throw new Error(t`Invalid card selected`);
-      }
-
-      replaceCard({
-        dashcardId: replaceCardModalDashCard.id,
-        nextCardId: nextCard.id,
-      });
-
-      addUndo({
-        message: getUndoReplaceCardMessage(replaceCardModalDashCard.card),
-        action: () =>
-          setDashCardAttributes({
-            id: replaceCardModalDashCard.id,
-            attributes: replaceCardModalDashCard,
-          }),
-      });
-      handleClose();
-    };
-
-    const shouldDisableItem = (item: OmniPickerItem) => {
-      // don't allow adding items that are already saved in a different dashboard
-      // proably only applicable to search and recents
-      if (!isInDbTree(item) && item.dashboard_id) {
-        if (item.dashboard_id !== dashboard.id) {
-          return true;
-        }
-      }
-      if (item.model === "dashboard" && item.id !== dashboard.id) {
-        return true;
-      }
-      return false;
-    };
-
-    const handleClose = () => {
-      this.setState({ replaceCardModalDashCard: null });
-    };
-
-    if (!hasValidDashCard) {
-      return null;
-    }
-
-    return (
-      <QuestionPickerModal
-        title={t`Pick what you want to replace this with`}
-        value={
-          replaceCardModalDashCard.card.id
-            ? getQuestionPickerValue(replaceCardModalDashCard.card)
-            : undefined
-        }
-        models={["card", "dataset", "metric", "dashboard"]}
-        options={{ hasConfirmButtons: false }}
-        onChange={handleSelect}
-        onClose={handleClose}
-        isDisabledItem={shouldDisableItem}
-      />
-    );
+    return null;
   }
 
   // we need to track whether or not we're dragging so we can disable pointer events on action buttons :-/
