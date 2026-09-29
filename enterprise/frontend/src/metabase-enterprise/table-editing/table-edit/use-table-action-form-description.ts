@@ -18,10 +18,7 @@ export const useActionFormDescription = ({
     useDescribeActionFormMutation();
 
   const refetch = useCallback(() => {
-    fetchModalDescription({
-      action: actionId,
-      scope,
-    });
+    return;
   }, [actionId, scope, fetchModalDescription]);
 
   useEffect(() => {
