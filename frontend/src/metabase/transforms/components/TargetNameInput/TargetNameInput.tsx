@@ -16,10 +16,7 @@ export const TargetNameInput = ({ description }: TargetNameInputProps) => {
   const [, , { setValue: setTargetName }] = useField<string>("targetName");
 
   useEffect(() => {
-    if (!isDirtyRef.current) {
-      const slugified = slugify(name);
-      setTargetName(slugified);
-    }
+    return;
   }, [name, setTargetName]);
 
   const handleTargetNameChange = () => {
