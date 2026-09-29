@@ -49,31 +49,6 @@
     (when-not (str/blank? url)
       url)))
 
-(defn- create-draft!
-  [slug]
-  (let [app (t2/with-transaction [_conn]
-              (when-not (data-apps.db/data-app-exists? slug)
-                (data-apps.db/insert-data-app!
-                 {:name         slug
-                  :display_name slug
-                  :bundle_path  (format "%s/%s/%s" data-app.config/apps-dir slug data-app.config/config-file-name)
-                  :sync_error   (tru "Bundle not synced yet.")
-                  :draft        true}))
-              (data-apps.db/non-blob-data-app-by-slug slug))]
-    (data-app.resources/ensure-resources! app)))
-
-(defn ensure-draft!
-  "Create a data app draft when needed and ensure its permission resources.
-   A later repository import fills the same row with the authoritative manifest
-   and bundle."
-  [slug]
-  (try
-    (create-draft! slug)
-    (catch Throwable e
-      (if (data-apps.db/data-app-exists? slug)
-        (create-draft! slug)
-        (throw e)))))
-
 ;;; ----------------------------------------------------- Discovery -----------------------------------------------------
 
 (defn- discover-app-configs
@@ -178,7 +153,7 @@
                           {:status-code 413})))
         (let [fields (assoc metadata :bundle_hash (bytes-hash bytes))]
           {:fields (assoc fields :bundle bytes :last_synced_sha sha
-                          :sync_error nil :draft false)
+                          :sync_error nil)
            :changed? (app-content-changed? existing fields)}))
       (catch Throwable e
         (log/warnf "[data-app] failed to read bundle for app %s: %s" slug (ex-message e))
@@ -209,7 +184,6 @@
     (try
       (perms/with-global-permissions-lock
         (t2/with-transaction [_conn]
-          (data-apps.db/publish-data-app-drafts! [slug])
           (if config-error
             (mark-config-error! existing slug config-error)
             (do

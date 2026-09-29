@@ -69,9 +69,7 @@ consequences are worth stating explicitly, because they're the questions that co
 Pruning is by **directory presence**, not by successful parse. An app whose directory is still
 there but whose `data_app.yaml` is momentarily broken keeps its row and its last-good bundle, and is
 marked with a `sync_error` — see failure isolation below. Local `enabled` state does not protect a
-row: an app disabled in the admin UI and then deleted from the repo is still removed. Draft rows —
-created via `POST /api/apps/:slug/draft` ahead of an app's first import — are the one exemption:
-pruning skips them until a sync materializes the app and clears the flag.
+row: an app disabled in the admin UI and then deleted from the repo is still removed.
 
 ## Failure isolation
 
@@ -111,10 +109,6 @@ assets (`metabase.server.routes/static-files-handler`).
   carrying the CSP that confines `'unsafe-eval'` to that realm.
 - `PUT /api/apps/:slug` — toggle `enabled` (superuser).
 - `DELETE /api/apps/:slug` — drop a row, its bundle, and its owned resources (superuser).
-- `POST /api/apps/:slug/draft` — create or reuse a draft row with its resources before the app's
-  first import (superuser).
-- `POST /api/apps/:slug/query` — resolve an authored query definition into a serializable
-  Metabase query plus the table IDs it touches (superuser).
 - `GET /api/apps/repo-status` — whether a repo is connected (superuser).
 
 Responses are field-filtered by role: superusers get full metadata, everyone else gets `name` and
@@ -127,7 +121,7 @@ middleware's lookup doesn't pull in route code.
 
 ## Permissions
 
-Each app owns two server-managed resources (`resources.clj`), created on draft or first import and
+Each app owns two server-managed resources (`resources.clj`), created on first import and
 reasserted on every sync: a **collection** holding the copies the app is served from (saved
 questions, action models, table-sourced metrics) and a **permissions group** its users belong to.
 
@@ -146,14 +140,13 @@ view-data of its own, so a viewer without access to an app's tables (e.g. a sand
 data from it — their own groups' permissions and sandboxes apply unchanged. Because the group grants
 nothing, it can never lift another group's sandbox, so sandboxing needs no data-app special-casing.
 
-**Managing is superuser-only** — enabling, disabling, deleting, drafts, query resolution, and repo
-status.
+**Managing is superuser-only** — enabling, disabling, deleting, and repo status.
 
 ## Namespace map
 
 | Namespace             | Responsibility                                                                                      |
 | --------------------- | --------------------------------------------------------------------------------------------------- |
-| `sync.clj`            | Discovery, materialization, pruning, drafts. The entry point remote-sync calls.                     |
+| `sync.clj`            | Discovery, materialization, pruning. The entry point remote-sync calls.                             |
 | `config.clj`          | `data_app.yaml` parsing and validation; the `data_apps/` layout constants.                          |
 | `api.clj`             | The `/api/apps` endpoints, bundle serving, ETag handling.                                           |
 | `resources.clj`       | Lifecycle of the app-owned collection and permission group: creation, view-data blocking, deletion. |
