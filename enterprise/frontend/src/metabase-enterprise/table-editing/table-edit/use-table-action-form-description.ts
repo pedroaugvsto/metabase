@@ -14,25 +14,5 @@ export const useActionFormDescription = ({
   scope,
   fetchOnMount = true,
 }: UseTableDescribeTmpModalProps) => {
-  const [fetchModalDescription, { data, isLoading }] =
-    useDescribeActionFormMutation();
-
-  const refetch = useCallback(() => {
-    fetchModalDescription({
-      action: actionId,
-      scope,
-    });
-  }, [actionId, scope, fetchModalDescription]);
-
-  useEffect(() => {
-    if (fetchOnMount) {
-      refetch();
-    }
-  }, [fetchOnMount, refetch]);
-
-  return {
-    refetch,
-    data,
-    isLoading,
-  };
+  return {};
 };
