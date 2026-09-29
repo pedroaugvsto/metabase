@@ -67,7 +67,7 @@ export function getColumnSections(
     const groupInfo = Lib.displayInfo(query, stageIndex, group);
 
     const items = Lib.getColumnsFromColumnGroup(group).flatMap((column) =>
-      getColumnListItems(query, stageIndex, breakouts, column),
+      [],
     );
 
     return {
