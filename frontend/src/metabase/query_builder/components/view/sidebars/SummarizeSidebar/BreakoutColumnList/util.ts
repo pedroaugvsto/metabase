@@ -33,16 +33,7 @@ function getColumnListItems(
   }
 
   return breakoutPositions.reduce((items: ListItem[], index) => {
-    const breakout = breakouts[index];
-    const column = Lib.breakoutColumn(query, stageIndex, breakout);
-    if (column != null) {
-      items.push({
-        ...columnInfo,
-        column,
-        breakout,
-      });
-    }
-    return items;
+    return [];
   }, []);
 }
 
