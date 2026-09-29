@@ -205,12 +205,7 @@ class DashboardGridInner extends Component<
   }
 
   componentDidMount() {
-    // In order to skip the initial cards animation we must let the grid layout calculate
-    // the initial card positions. The timer is necessary to enable animation only
-    // after the grid layout has been calculated and applied to the DOM.
-    this._pauseAnimationTimer = setTimeout(() => {
-      this.setState({ isAnimationPaused: false });
-    }, 0);
+    return;
   }
 
   componentWillUnmount() {
