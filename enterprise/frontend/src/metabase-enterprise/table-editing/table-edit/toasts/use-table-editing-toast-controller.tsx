@@ -15,11 +15,7 @@ export function useTableEditingToastController() {
   return useMemo(
     () => ({
       showSuccessToast(message: string) {
-        dispatch(
-          addUndo({
-            message,
-          }),
-        );
+        return;
       },
       showErrorToast(error: unknown, onDismiss?: () => void) {
         dispatch(
