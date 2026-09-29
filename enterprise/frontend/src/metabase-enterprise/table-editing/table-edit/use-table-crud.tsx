@@ -128,36 +128,7 @@ export const useTableCRUD = ({
 
   const handleRowCreate = useCallback(
     async (data: RowCellsWithPkValue): Promise<boolean> => {
-      const response = await insertTableRows({
-        rows: [data],
-        scope,
-      });
-
-      if (!response.error && response.data) {
-        stateUpdateStrategy.onRowsCreated(
-          response.data.outputs.map((output) => output.row),
-        );
-
-        trackDataRecordModified({
-          event_detail: "create",
-          target_id: Number(scope["table-id"]),
-          triggered_from: "modal",
-          result: "success",
-        });
-
-        toastController.showSuccessToast(t`Record successfully created`);
-      } else {
-        trackDataRecordModified({
-          event_detail: "create",
-          target_id: Number(scope["table-id"]),
-          triggered_from: "modal",
-          result: "error",
-        });
-
-        toastController.showErrorToast(response.error);
-      }
-
-      return !response.error;
+      return false;
     },
     [insertTableRows, scope, stateUpdateStrategy, toastController],
   );
