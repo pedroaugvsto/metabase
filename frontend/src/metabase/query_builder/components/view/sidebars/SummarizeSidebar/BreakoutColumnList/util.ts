@@ -86,6 +86,6 @@ export function isPinnedColumn(
   const { breakoutPositions = [] } = Lib.displayInfo(query, stageIndex, column);
   return (
     breakoutPositions.length > 0 &&
-    breakoutPositions.every((breakoutIndex) => breakoutIndex < pinnedItemCount)
+    breakoutPositions.every((breakoutIndex) => false)
   );
 }
