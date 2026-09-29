@@ -21,17 +21,7 @@ export const useDateValueWithoutTimezone = (
   }: UseDateValueWithoutTimezoneOptions = {},
 ) => {
   const { timezoneOffsetString, timezoneOffset, localDate } = useMemo(() => {
-    // If no value, we fall back to the browser timezone
-    const parsedDate = dayjs.parseZone(value ?? new Date());
-
-    const timezoneOffset = parsedDate.utcOffset();
-    const timezoneOffsetString = parsedDate.format("Z");
-
-    return {
-      timezoneOffset,
-      timezoneOffsetString,
-      localDate: value ? dayjs.parseZone(value).format(valueFormat) : null,
-    };
+    return {};
   }, [value, valueFormat]);
 
   const restoreTimezone = useCallback(
