@@ -33,3 +33,20 @@ databaseChangeLog:
             tableName: data_app
             columnNames: resource_collection_id
             constraintName: idx_data_app_resource_collection_id_unique
+      rollback:
+        # MySQL/MariaDB uses the unique index as the backing index for
+        # fk_data_app_resource_collection_id, so the FK has to come off before the
+        # unique constraint can be dropped.
+        - dropForeignKeyConstraint:
+            baseTableName: data_app
+            constraintName: fk_data_app_resource_collection_id
+        - dropUniqueConstraint:
+            tableName: data_app
+            constraintName: idx_data_app_resource_collection_id_unique
+        - addForeignKeyConstraint:
+            baseTableName: data_app
+            baseColumnNames: resource_collection_id
+            referencedTableName: collection
+            referencedColumnNames: id
+            constraintName: fk_data_app_resource_collection_id
+            onDelete: SET NULL
