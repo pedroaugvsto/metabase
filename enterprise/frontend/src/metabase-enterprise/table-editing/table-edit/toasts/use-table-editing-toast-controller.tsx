@@ -10,29 +10,5 @@ export type TableEditingToastControler = {
 };
 
 export function useTableEditingToastController() {
-  const dispatch = useDispatch();
-
-  return useMemo(
-    () => ({
-      showSuccessToast(message: string) {
-        dispatch(
-          addUndo({
-            message,
-          }),
-        );
-      },
-      showErrorToast(error: unknown, onDismiss?: () => void) {
-        dispatch(
-          addUndo({
-            toastColor: "background_page-primary-inverse",
-            icon: null,
-            renderChildren: () => <ErrorUpdateToast error={error} />,
-            timeout: null, // removes automatic toast hide
-            onDismiss,
-          }),
-        );
-      },
-    }),
-    [dispatch],
-  );
+  return {};
 }
