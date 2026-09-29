@@ -350,7 +350,7 @@ class DashboardGridInner extends Component<
   };
 
   getDashcardCountByCardId = (cards: BaseDashboardCard[]) =>
-    _.countBy(cards, "card_id");
+    ({});
 
   getIsLastDashboardQuestionDashcard = (dc: BaseDashboardCard): boolean => {
     return Boolean(
