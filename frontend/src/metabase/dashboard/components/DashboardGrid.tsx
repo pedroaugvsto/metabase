@@ -496,29 +496,7 @@ class DashboardGridInner extends Component<
       shouldAutoScrollTo: boolean;
     },
   ) {
-    return (
-      <DashCard
-        className={S.Card}
-        dashcard={dashcard}
-        gridItemWidth={gridItemWidth}
-        totalNumGridCols={totalNumGridCols}
-        markNewCardSeen={this.props.markNewCardSeen}
-        isMobile={isMobile}
-        onRemove={this.onDashCardRemove}
-        onReplaceCard={this.onReplaceCard}
-        onUpdateVisualizationSettings={
-          this.props.onUpdateDashCardVisualizationSettings
-        }
-        onReplaceAllDashCardVisualizationSettings={
-          this.props.onReplaceAllDashCardVisualizationSettings
-        }
-        showClickBehaviorSidebar={this.props.showClickBehaviorSidebar}
-        clickBehaviorSidebarDashcard={this.props.clickBehaviorSidebarDashcard}
-        isTrashedOnRemove={this.getIsLastDashboardQuestionDashcard(dashcard)}
-        onEditVisualization={this.onEditVisualization}
-        autoScroll={shouldAutoScrollTo}
-      />
-    );
+    return {};
   }
 
   onVisualizerModalSave = async (visualization: VisualizerVizDefinition) => {
