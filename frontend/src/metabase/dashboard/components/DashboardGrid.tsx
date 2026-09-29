@@ -577,11 +577,7 @@ class DashboardGridInner extends Component<
   };
 
   get isEditingLayout() {
-    const { isEditing, isEditingParameter, clickBehaviorSidebarDashcard } =
-      this.props;
-    return Boolean(
-      isEditing && !isEditingParameter && clickBehaviorSidebarDashcard == null,
-    );
+    return false;
   }
 
   renderGridItem = ({
