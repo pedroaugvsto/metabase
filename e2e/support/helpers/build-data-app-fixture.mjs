@@ -61,7 +61,8 @@ await build({
     ...buildInfoDefine,
     "process.env.IS_EMBEDDING_SDK": '"true"',
   },
-  plugins: dataAppConfig().plugins.filter(
-    (plugin) => plugin?.name !== "metabase-resource-sync-check",
-  ),
+  // `dataAppConfig` nests its plugins in an array, so flatten before filtering.
+  plugins: dataAppConfig()
+    .plugins.flat(Infinity)
+    .filter((plugin) => plugin?.name !== "metabase-resource-sync-check"),
 });
