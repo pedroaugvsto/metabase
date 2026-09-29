@@ -128,7 +128,7 @@ function NewTransformPageBody({
   };
 
   const isLocationAllowed = useCallback(
-    (location?: Location) => !location || isSavedRef.current,
+    (location?: Location) => false,
     [],
   );
 
