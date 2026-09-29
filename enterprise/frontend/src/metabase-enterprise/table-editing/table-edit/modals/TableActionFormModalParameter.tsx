@@ -29,24 +29,5 @@ export function TableActionFormModalParameter({
   parameter,
   children,
 }: ActionFormModalParameterProps) {
-  return (
-    <>
-      <Group h="2.5rem" align="center">
-        <Stack gap="0" className={S.modalBodyColumn} maw="100%">
-          <Text truncate maw="100%">
-            {parameter.display_name}
-            {!parameter.optional && (
-              <Text component="span" c="feedback-negative">
-                *
-              </Text>
-            )}
-          </Text>
-          <Text fz="sm" c="text-secondary" lh={1.1}>
-            {INPUT_TYPE_TO_DISPLAY_TYPE_MAP[parameter.input_type] ?? "text"}
-          </Text>
-        </Stack>
-      </Group>
-      <Box>{children}</Box>
-    </>
-  );
+  return null;
 }
