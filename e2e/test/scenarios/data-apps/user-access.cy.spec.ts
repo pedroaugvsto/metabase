@@ -141,7 +141,7 @@ describe("scenarios > data apps > user access (EMB-2328)", () => {
     cy.get<Table>("@sqliteTable").then(({ name, schema }) => {
       expect(schema).to.equal("");
 
-      pullAppReading([["sqlite", schema, name]]);
+      pullAppReading([["sqlite", null, name]]);
     });
 
     cy.get<number>("@dataAppGroupId").then((groupId) => {

@@ -89,8 +89,8 @@ describe("scenarios > data apps > repo sync", () => {
       url: "/api/apps/broken-bundle/bundle",
       failOnStatusCode: false,
     }).then(({ status, body }) => {
-      expect(status).to.eq(404);
-      expect(body).to.deep.eq({ error: "Bundle not synced yet" });
+      expect(status).to.eq(409);
+      expect(body).to.contain("This data app has not been published yet.");
     });
 
     for (const slug of ["bad-config", "no-config"]) {
