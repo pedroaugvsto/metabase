@@ -25,9 +25,7 @@ export const useActionFormDescription = ({
   }, [actionId, scope, fetchModalDescription]);
 
   useEffect(() => {
-    if (fetchOnMount) {
-      refetch();
-    }
+    return;
   }, [fetchOnMount, refetch]);
 
   return {
