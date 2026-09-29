@@ -18,11 +18,7 @@ export const tableEditingApi = EnterpriseApi.injectEndpoints({
       TableInsertRowsResponse,
       TableInsertRowsRequest
     >({
-      query: ({ rows, scope }) => ({
-        method: "POST",
-        url: `/api/ee/action-v2/execute-bulk`,
-        body: { inputs: rows, scope, action: TableActionId.CreateRow },
-      }),
+      query: ({ rows, scope }) => ({}),
     }),
     updateTableRows: builder.mutation<
       TableUpdateRowsResponse,
