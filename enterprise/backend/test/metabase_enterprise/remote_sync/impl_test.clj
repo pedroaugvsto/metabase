@@ -4,6 +4,7 @@
    [clojure.string :as str]
    [clojure.test :refer :all]
    [java-time.api :as t]
+   [metabase-enterprise.data-apps.sync :as data-apps.sync]
    [metabase-enterprise.remote-sync.guards :as guards]
    [metabase-enterprise.remote-sync.impl :as impl]
    [metabase-enterprise.remote-sync.models.remote-sync-task :as remote-sync.task]
@@ -1868,8 +1869,10 @@ serdes/meta:
 (deftest export!-merges-non-conflicting-remote-changes-test
   (testing "when the remote advanced and the merge is clean, export! merges, advances the version, and reconciles local"
     (mt/with-temp [:model/RemoteSyncTask {task-id :id} {:sync_task_type "export"}]
-      (let [reconciled (atom nil)]
+      (let [reconciled   (atom nil)
+            materialized (atom nil)]
         (mt/with-dynamic-fn-redefs [remote-sync.task/last-version    (constantly "base-B")
+                                    data-apps.sync/sync-from-snapshot! (fn [{:keys [sha]}] (reset! materialized sha) nil)
                                     spec/extract-entities-for-export (constantly [{:dummy true}])
                                     source/compute-merge (fn [_ _ _ _ & _]
                                                            {:merged [{:path "collections/x.yaml" :content "x"}]
@@ -1886,6 +1889,8 @@ serdes/meta:
             (is (= {:added 2 :updated 1 :removed 0} (:merge-summary result)))
             (is (= "written-version" @reconciled)
                 "the merged result is loaded back into the local app DB (the pull half)")
+            (is (= "written-version" @materialized)
+                "the data apps the remote brought are materialized before the version moves past them")
             (is (= "written-version" (:version (t2/select-one :model/RemoteSyncTask :id task-id))))))))))
 
 (deftest export!-empty-merge-reports-pull-test
@@ -1994,8 +1999,10 @@ serdes/meta:
 (deftest export!-force-overwrites-without-merging-test
   (testing "force? overwrites the remote wholesale (full export) even when it advanced — no merge"
     (mt/with-temp [:model/RemoteSyncTask {task-id :id} {:sync_task_type "export"}]
-      (let [merged? (atom false)]
+      (let [merged?      (atom false)
+            materialized (atom nil)]
         (mt/with-dynamic-fn-redefs [remote-sync.task/last-version    (constantly "base-B")
+                                    data-apps.sync/sync-from-snapshot! (fn [{:keys [sha]}] (reset! materialized sha) nil)
                                     spec/exportable-entities         (constantly {"Card" [999999999]})  ; absent id -> empty extraction; routing is what's under test
                                     source/compute-merge             (fn [& _] (reset! merged? true) {:merged [] :conflicts [] :summary {}})]
           (let [result (impl/export! (export-test-snapshot "remote-R") task-id "msg"
@@ -2005,7 +2012,19 @@ serdes/meta:
             (is (= :success (:status result)))
             (is (false? @merged?) "force? skips the merge path")
             ;; force? routes through full-export!, which commits via the snapshot and advances the version
-            (is (= "written-version" (:version (t2/select-one :model/RemoteSyncTask :id task-id))))))))))
+            (is (= "written-version" (:version (t2/select-one :model/RemoteSyncTask :id task-id))))
+            (is (= "remote-R" @materialized)
+                "the commit keeps the remote's data_apps/, so its apps are materialized before the version moves")))))))
+
+(deftest export!-force-without-divergence-does-not-rematerialize-data-apps-test
+  (testing "a forced export over a remote that hasn't moved keeps data_apps/ as last imported, so there's nothing to materialize"
+    (mt/with-temp [:model/RemoteSyncTask {task-id :id} {:sync_task_type "export"}]
+      (let [materialized? (atom false)]
+        (mt/with-dynamic-fn-redefs [remote-sync.task/last-version      (constantly "remote-R")
+                                    spec/exportable-entities           (constantly {"Card" [999999999]})
+                                    data-apps.sync/sync-from-snapshot! (fn [_] (reset! materialized? true) nil)]
+          (is (= :success (:status (impl/export! (export-test-snapshot "remote-R") task-id "msg" :force? true))))
+          (is (false? @materialized?)))))))
 
 (deftest export!-no-merge-when-not-diverged-test
   (testing "when the remote has not advanced, export! takes the normal (non-merge) export path"

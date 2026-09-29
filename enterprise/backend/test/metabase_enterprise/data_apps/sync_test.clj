@@ -9,30 +9,16 @@
    [metabase-enterprise.data-apps.db :as data-apps.db]
    [metabase-enterprise.data-apps.resources :as data-app.resources]
    [metabase-enterprise.data-apps.sync :as data-app.sync]
-   [metabase-enterprise.remote-sync.source :as source]
+   [metabase-enterprise.data-apps.test-util :as data-apps.tu]
    [metabase.permissions.core :as perms]
    [metabase.test :as mt]
    [toucan2.core :as t2]))
 
 (set! *warn-on-reflection* true)
 
-(def ^:private fake-sha "0123456789abcdef0123456789abcdef01234567")
+(def ^:private snapshot data-apps.tu/snapshot)
 
-(defn- snapshot
-  [path->content & {:keys [sha] :or {sha fake-sha}}]
-  {:sha       sha
-   :list-dir  (fn [dir] (source/paths->children (keys path->content) dir))
-   :read-file (fn [p] (get path->content p))})
-
-(defn- app-files
-  "The repo files for one app in `data_apps/<dir>`. `dir` is the app's slug — the
-   config declares no slug, it is the directory's name."
-  [dir {:keys [name path bundle description version]}]
-  {(format "data_apps/%s/data_app.yaml" dir)
-   (str (format "name: %s\npath: %s\n" name path)
-        (when description (format "description: %s\n" description))
-        (when version (format "version: %s\n" version)))
-   (format "data_apps/%s/%s" dir path) bundle})
+(def ^:private app-files data-apps.tu/app-files)
 
 (deftest sync-from-snapshot-is-gated-by-the-data-apps-feature-test
   (testing "the remote-sync entry point does nothing without the :data-apps feature —
@@ -52,11 +38,11 @@
           (is (t2/exists? :model/DataApp :name "a")))))))
 
 (deftest resource-provisioning-failures-are-isolated-test
-  (mt/with-model-cleanup [:model/DataApp]
+  (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
     (let [files (merge (app-files "broken" {:name "Broken" :path "index.js" :bundle "BROKEN"})
                        (app-files "working" {:name "Working" :path "index.js" :bundle "WORKING"}))]
-      (mt/with-dynamic-fn-redefs [data-app.resources/ensure-resources!
-                                  (fn [app]
+      (mt/with-dynamic-fn-redefs [data-app.resources/link-resources!
+                                  (fn [app _collection-id]
                                     (when (= "broken" (:name app))
                                       (throw (ex-info "Resource provisioning failed." {}))))]
         (is (=? {:synced 2 :changed 2}
@@ -72,11 +58,11 @@
       (data-app.sync/import-from-snapshot! (snapshot files))
       (let [{:keys [resource_collection_id permission_group_id]}
             (t2/select-one :model/DataApp :name "sales")]
-        (testing "the first sync creates a dedicated group and collection"
+        (testing "the first sync loads the collection from the repository and creates a dedicated group"
           (is (pos-int? resource_collection_id))
           (is (pos-int? permission_group_id))
-          (is (= "Data App: sales"
-                 (t2/select-one-fn :name :model/Collection :id resource_collection_id)))
+          (is (=? {:name "Data App: Sales" :entity_id (data-apps.tu/collection-entity-id "sales") :location "/"}
+                  (t2/select-one :model/Collection :id resource_collection_id)))
           (is (= "Data App: sales"
                  (t2/select-one-fn :name :model/PermissionsGroup :id permission_group_id)))
           (is (t2/exists? :model/Permissions
@@ -102,21 +88,24 @@
           (is (not (t2/exists? :model/PermissionsGroup :id permission_group_id))))))))
 
 (deftest sync-restores-deleted-collection-and-permission-group-test
-  (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
-    (let [files (app-files "sales" {:name "Sales" :path "index.js" :bundle "V1"})]
-      (data-app.sync/import-from-snapshot! (snapshot files))
-      (let [before (select-keys (t2/select-one :model/DataApp :name "sales")
-                                [:resource_collection_id :permission_group_id])]
-        (t2/delete! :model/Collection :id (:resource_collection_id before))
-        (t2/delete! :model/PermissionsGroup :id (:permission_group_id before))
+  (testing "the repository owns the collection, so a sync reloads one deleted in Metabase"
+    (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
+      (let [files (app-files "sales" {:name "Sales" :path "index.js" :bundle "V1"})]
         (data-app.sync/import-from-snapshot! (snapshot files))
+        (let [before (select-keys (t2/select-one :model/DataApp :name "sales")
+                                  [:resource_collection_id :permission_group_id])]
+          (t2/delete! :model/Collection :id (:resource_collection_id before))
+          (t2/delete! :model/PermissionsGroup :id (:permission_group_id before))
+          (data-app.sync/import-from-snapshot! (snapshot files))
         ; after syncing the app again, the data app collection and
         ; permission group should be re-created
-        (let [after (select-keys (t2/select-one :model/DataApp :name "sales") (keys before))]
-          (is (every? pos-int? (vals after)))
-          (is (t2/exists? :model/Collection :id (:resource_collection_id after)))
-          (is (t2/exists? :model/PermissionsGroup :id (:permission_group_id after)))
-          (is (not= before after)))))))
+          (let [after (select-keys (t2/select-one :model/DataApp :name "sales") (keys before))]
+            (is (every? pos-int? (vals after)))
+            (is (t2/exists? :model/Collection :id (:resource_collection_id after)))
+            (is (t2/exists? :model/PermissionsGroup :id (:permission_group_id after)))
+            (is (not= before after))
+            (is (= (data-apps.tu/collection-entity-id "sales")
+                   (t2/select-one-fn :entity_id :model/Collection :id (:resource_collection_id after))))))))))
 
 (deftest changed-count-tracks-content-not-sha-bumps-test
   (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
@@ -135,7 +124,16 @@
       (testing "a bundle content change counts"
         (is (=? {:changed 1}
                 (data-app.sync/import-from-snapshot!
-                 (snapshot (app-files "a" {:name "A renamed" :path "index.js" :bundle "V2"})))))))))
+                 (snapshot (app-files "a" {:name "A renamed" :path "index.js" :bundle "V2"}))))))
+      (testing "a change to the resource files alone counts"
+        (is (=? {:changed 1}
+                (data-app.sync/import-from-snapshot!
+                 (snapshot (app-files "a" {:name "A renamed" :path "index.js" :bundle "V2"
+                                           :resources {"collection.yaml" (data-apps.tu/collection-file
+                                                                          (data-apps.tu/collection-entity-id "a")
+                                                                          "Renamed collection")}})))))
+        (is (= "Renamed collection"
+               (t2/select-one-fn :name :model/Collection :entity_id (data-apps.tu/collection-entity-id "a"))))))))
 
 (deftest description-is-optional-and-tracked-like-other-metadata-test
   (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
@@ -226,7 +224,8 @@
 (deftest remote-sync-prunes-never-successful-repository-apps-test
   (mt/with-model-cleanup [:model/DataApp]
     (data-app.sync/import-from-snapshot!
-     (snapshot {"data_apps/broken/data_app.yaml" "name: Broken\npath: missing.js\n"}))
+     (snapshot {"data_apps/broken/data_app.yaml" (format "name: Broken\npath: missing.js\ncollection: %s\n"
+                                                         (data-apps.tu/collection-entity-id "broken"))}))
     (is (some? (t2/select-one-fn :sync_error :model/DataApp :name "broken")))
     (is (=? {:removed 1}
             (data-app.sync/import-from-snapshot! (snapshot {}))))
@@ -313,14 +312,14 @@
   (mt/with-model-cleanup [:model/DataApp :model/Collection :model/PermissionsGroup]
     (let [files (merge (app-files "broken" {:name "Broken" :path "index.js" :bundle "OLD"})
                        (app-files "working" {:name "Working" :path "index.js" :bundle "OLD"}))
-          ensure-resources! (mt/original-fn #'data-app.resources/ensure-resources!)]
+          link-resources! (mt/original-fn #'data-app.resources/link-resources!)]
       (data-app.sync/import-from-snapshot! (snapshot files))
       (let [collection-id (t2/select-one-fn :resource_collection_id :model/DataApp :name "broken")
             old-name (t2/select-one-fn :name :model/Collection :id collection-id)]
-        ; inject an error into `ensure-resources!` for the "broken" app
-        (mt/with-dynamic-fn-redefs [data-app.resources/ensure-resources!
-                                    (fn [app]
-                                      (ensure-resources! app)
+        ; inject an error into `link-resources!` for the "broken" app
+        (mt/with-dynamic-fn-redefs [data-app.resources/link-resources!
+                                    (fn [app collection-id]
+                                      (link-resources! app collection-id)
                                       (when (= "broken" (:name app))
                                         (t2/update! :model/Collection :id collection-id {:name "Partial update"})
                                         (throw (ex-info "Resource provisioning failed." {}))))]
@@ -330,7 +329,7 @@
         (is (= "OLD" (String. ^bytes (t2/select-one-fn :bundle :model/DataApp :name "broken") "UTF-8")))
         ; the collection name should be rolled back to the old name
         (is (= old-name (t2/select-one-fn :name :model/Collection :id collection-id)))
-        ; the thrown exception in ensure-resources! should be reported in the sync error
+        ; the thrown exception in link-resources! should be reported in the sync error
         (is (= "Resource provisioning failed." (t2/select-one-fn :sync_error :model/DataApp :name "broken")))
         ; the "working" app without sync errors should not be rolled back to "OLD"
         (is (= "NEW" (String. ^bytes (t2/select-one-fn :bundle :model/DataApp :name "working") "UTF-8")))))))

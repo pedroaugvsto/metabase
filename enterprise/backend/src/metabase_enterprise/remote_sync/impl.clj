@@ -811,6 +811,7 @@
                               (apply report (+ export-progress-serialize (* fraction (- 1.0 export-progress-serialize))) opts))
                             sync-timestamp
                             :finalize! (fn []
+                                         (materialize-data-apps! merged-snapshot)
                                          (remote-sync.db/mark-all-rsos-synced! sync-timestamp)
                                          (remote-sync.task/set-version! task-id version)))
             (log/infof "Exported with merge: folded in %d remote change(s) (added %d, updated %d, removed %d); pushed %d"
@@ -862,12 +863,14 @@
   content but have no RemoteSyncObject row — untracked deps an incremental export must write to match a full
   export. Excludes the entity itself and non-content deps (e.g. databases)."
   [model-type model-id]
-  (into #{}
-        (filter (fn [{:keys [model_type model_id]}]
-                  (and (not (and (= model_type model-type) (= model_id model-id)))
-                       (spec/spec-for-model-type model_type)
-                       (not (remote-sync.db/rso-exists? model_type model_id)))))
-        (export-closure model-type model-id)))
+  (let [closure (export-closure model-type model-id)]
+    (spec/check-no-data-app-resources! (keep #(when (= "Card" (:model_type %)) (:model_id %)) closure))
+    (into #{}
+          (filter (fn [{:keys [model_type model_id]}]
+                    (and (not (and (= model_type model-type) (= model_id model-id)))
+                         (spec/spec-for-model-type model_type)
+                         (not (remote-sync.db/rso-exists? model_type model_id)))))
+          closure)))
 
 (defn- ->sized-chunks
   "Builds chunks of maximum size based on model type."
@@ -1117,8 +1120,10 @@
 (defn- exportable-write-rows
   "WriteRows for a full export — every exportable id tagged with its RemoteSyncObject id (untracked deps get :id nil)."
   []
-  (let [rso-id (u/index-by (juxt :model_type :model_id) :id (remote-sync.db/rso-keys))]
-    (for [[model ids] (spec/exportable-entities)
+  (let [rso-id  (u/index-by (juxt :model_type :model_id) :id (remote-sync.db/rso-keys))
+        targets (spec/exportable-entities)]
+    (spec/check-no-data-app-resources! (get targets "Card"))
+    (for [[model ids] targets
           id          ids]
       {:model_type model :model_id id :id (rso-id [model id])})))
 
@@ -1144,10 +1149,14 @@
 (defn- full-export!
   "Re-serialize and commit the entire remote-synced set, then reconcile every RemoteSyncObject.
 
+  The commit keeps everything outside the managed dirs from `snapshot`, including `data_apps/`. Pass
+  `:materialize-data-apps? true` when `snapshot` is ahead of the last import, so the apps it brings are materialized
+  before the version moves past them.
+
   Returns:
    - {:status :success}
    or throws"
-  [snapshot task-id message sync-timestamp]
+  [snapshot task-id message sync-timestamp & {:keys [materialize-data-apps?]}]
   (let [export-rows (vec (exportable-write-rows))]
     (when (empty? export-rows)
       (throw (ex-info "No remote-syncable content available." {})))
@@ -1167,6 +1176,8 @@
                                                  synced))
                                              report)]
         (t2/with-transaction [_]
+          (when materialize-data-apps?
+            (materialize-data-apps! snapshot))
           (when-not (= version :remote-sync/empty-commit)
             (remote-sync.task/set-version! task-id version))
           (doseq [removed-ids (partition-all 500 (find-departed-entities export-rows))]
@@ -1247,7 +1258,7 @@
             force?
             (do
               (log/info "Remote sync full export: forced overwrite")
-              (full-export! snapshot task-id message sync-timestamp))
+              (full-export! snapshot task-id message sync-timestamp :materialize-data-apps? diverged?))
 
             (and diverged? merge?)
             (cond
@@ -1259,6 +1270,7 @@
 
               :else
               (let [targets (spec/exportable-entities)]
+                (spec/check-no-data-app-resources! (get targets "Card"))
                 (export-merged! src snapshot base-snapshot task-id message sync-timestamp
                                 (spec/extract-entities-for-export targets)
                                 :total (spec/exportable-entity-count targets))))

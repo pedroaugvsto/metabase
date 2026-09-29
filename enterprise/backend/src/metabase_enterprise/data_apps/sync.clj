@@ -10,12 +10,15 @@
    This namespace does no Git access of its own — the snapshot's `read-file` /
    `list-dir` come from remote-sync. The cached `bundle` blob is what serving
    reads, so a failed sync never takes a working app offline, and the admin
-   `enabled` toggle is preserved across syncs."
+   `enabled` toggle is preserved across syncs. Each app's resources (its
+   collection, cards, and actions) are loaded from its `resources/` files in the
+   same transaction as its row, so they change together with the bundle."
   (:require
    [clojure.string :as str]
    [metabase-enterprise.data-apps.config :as data-app.config]
    [metabase-enterprise.data-apps.db :as data-apps.db]
-   [metabase-enterprise.data-apps.resources :as data-app.resources]
+   [metabase-enterprise.data-apps.resource-files :as data-app.resource-files]
+   [metabase-enterprise.data-apps.resource-load :as data-app.resource-load]
    [metabase.permissions.core :as perms]
    [metabase.premium-features.core :as premium-features]
    [metabase.settings.core :as setting]
@@ -56,8 +59,8 @@
    directory's immediate children as repo-root relative paths, and `read-file`
    returns file text or nil), iterate the folders under `data_apps/` and return one
    entry per folder that is an app — it holds a `data_app.yaml`; a folder without
-   one is skipped. Each entry is a parsed app `{:slug :display_name :description
-   :version :bundle :allowed_hosts}` (with `:bundle` the repo-root relative bundle path) or
+   one is skipped. Each entry is a parsed app `{:slug :dir :display_name :description
+   :version :bundle :allowed_hosts :collection}` (with `:bundle` the repo-root relative bundle path) or
    `{:config-error <message>}`. Parse/read failures are isolated per app so one bad
    config can't abort the sync.
 
@@ -74,14 +77,16 @@
         :when (some #{config-path} (list-dir dir))]
     (try
       (if-let [content (read-file config-path)]
-        (let [{:keys [slug display_name description version path allowed_hosts]}
+        (let [{:keys [slug display_name description version path allowed_hosts collection]}
               (data-app.config/parse-app-config (->bytes content) dir)]
           {:slug          slug
+           :dir           dir
            :display_name  display_name
            :description   description
            :version       version
            :bundle        (str dir "/" path)
-           :allowed_hosts allowed_hosts})
+           :allowed_hosts allowed_hosts
+           :collection    collection})
         {:slug (data-app.config/dir-slug dir), :config-error (tru "Could not read {0}." config-path)})
       (catch Throwable e
         {:slug (data-app.config/dir-slug dir), :config-error (ex-message e)}))))
@@ -115,10 +120,11 @@
    app). Compares only content-bearing fields — a `last_synced_sha` /
    `last_synced_at` bump on an otherwise-identical app is NOT a change, so callers
    can count real changes (e.g. for the remote-sync pull summary)."
-  [existing {:keys [bundle_hash] :as fields}]
+  [existing {:keys [bundle_hash resources_hash] :as fields}]
   (or (nil? existing)
       (some? (:sync_error existing))
       (not= (:bundle_hash existing) bundle_hash)
+      (not= (:resources_hash existing) resources_hash)
       (app-metadata-changed? existing fields)))
 
 (defn- mark-config-error!
@@ -132,10 +138,17 @@
      (data-apps.db/update-data-app-by-slug! slug {:sync_error message})
      true)))
 
+(defn- read-resources
+  "Read and validate the resource files of the app in `dir`. Reads nothing from the app DB."
+  [{:keys [dir collection list-dir read-file]}]
+  (let [resources (data-app.resource-files/read-resources list-dir read-file dir)]
+    (data-app.resource-load/validate-resources collection resources)
+    resources))
+
 (defn- prepare-app
-  "Read one app's bundle before taking the permissions lock.
-   A bundle failure preserves the cached bundle and prepares metadata with `sync_error` instead."
-  [existing {:keys [slug display_name description version bundle sha read-file allowed_hosts]}]
+  "Read one app's bundle and resource files before taking the permissions lock.
+   A failure preserves the cached bundle and resources and prepares metadata with `sync_error` instead."
+  [existing {:keys [slug display_name description version bundle sha read-file allowed_hosts] :as cfg}]
   (let [metadata {:display_name display_name
                   :description description
                   :version version
@@ -151,12 +164,15 @@
           (throw (ex-info (tru "Bundle for \"{0}\" must be less than {1} MiB."
                                slug (quot max-bundle-bytes (* 1024 1024)))
                           {:status-code 413})))
-        (let [fields (assoc metadata :bundle_hash (bytes-hash bytes))]
-          {:fields (assoc fields :bundle bytes :last_synced_sha sha
-                          :sync_error nil)
-           :changed? (app-content-changed? existing fields)}))
+        (let [resources (read-resources cfg)
+              fields    (assoc metadata
+                               :bundle_hash (bytes-hash bytes)
+                               :resources_hash (data-app.resource-files/resources-hash resources))]
+          {:fields    (assoc fields :bundle bytes :last_synced_sha sha :sync_error nil)
+           :resources resources
+           :changed?  (app-content-changed? existing fields)}))
       (catch Throwable e
-        (log/warnf "[data-app] failed to read bundle for app %s: %s" slug (ex-message e))
+        (log/warnf "[data-app] failed to read app %s: %s" slug (ex-message e))
         {:fields (assoc metadata :sync_error (ex-message e))
          :changed? (or (nil? existing)
                        (not= (:sync_error existing) (ex-message e))
@@ -178,9 +194,9 @@
       false)))
 
 (defn- sync-app!
-  "Commit one app and its permission resources together. Return whether its recorded state changed."
-  [existing {:keys [slug config-error] :as cfg}]
-  (let [{:keys [fields changed?]} (when-not config-error (prepare-app existing cfg))]
+  "Commit one app and its resources together. Return whether its recorded state changed."
+  [existing {:keys [slug config-error collection] :as cfg}]
+  (let [{:keys [fields resources changed?]} (when-not config-error (prepare-app existing cfg))]
     (try
       (perms/with-global-permissions-lock
         (t2/with-transaction [_conn]
@@ -188,7 +204,10 @@
             (mark-config-error! existing slug config-error)
             (do
               (upsert-by-name! slug fields)
-              (data-app.resources/ensure-resources! (data-apps.db/non-blob-data-app-by-slug slug))
+              (when resources
+                (data-app.resource-load/load-resources! (data-apps.db/non-blob-data-app-by-slug slug)
+                                                        collection
+                                                        resources))
               changed?))))
       (catch Throwable e
         (log/warnf "[data-app] failed to sync app %s: %s" slug (ex-message e))
@@ -213,8 +232,8 @@
       :list-dir  <(fn [path] -> [<child-path-string> ...])>
       :sha       <commit-sha-string>}
 
-   Discovers every `data_apps/<dir>/data_app.yaml`, upserts a row per app, and prunes
-   rows whose directory is gone from the snapshot. Apps are synced independently, so
+   Discovers every `data_apps/<dir>/data_app.yaml`, prunes rows whose directory is
+   gone from the snapshot, and upserts a row per remaining app with its resources. Apps are synced independently, so
    one failing app cannot roll back the others. Returns
    `{:synced <n>, :changed <n>, :removed <n>, :sha <sha>, :config-errors [<msg> ...]}`,
    where `:changed` counts apps actually created/updated (a `last_synced_sha` bump on
@@ -234,13 +253,15 @@
         ;; every app directory present in the repo (parsed or not) — the set of
         ;; slugs that should survive this sync
         present-slugs (into #{} (map :slug) results)
+        ;; Pruning first frees what a removed app owned, so an app directory renamed in the same commit can load the
+        ;; collection it brought along.
+        {:keys [removed] :as pruning-result} (prune-apps! present-slugs)
         ;; pre-sync rows, so we can tell a real change from a sha/timestamp bump
         existing      (into {} (map (juxt :name identity))
                             (data-apps.db/data-apps-sync-info))
         changed (count (filter (fn [{:keys [slug] :as cfg}]
-                                 (sync-app! (get existing slug) (assoc cfg :sha sha :read-file read-file)))
-                               results))
-        {:keys [removed] :as pruning-result} (prune-apps! present-slugs)]
+                                 (sync-app! (get existing slug) (assoc cfg :sha sha :read-file read-file :list-dir list-dir)))
+                               results))]
     (log/infof "[data-app] synced sha=%s apps=%d changed=%d removed=%d errors=%d"
                sha (count good) changed removed (count errors))
     (merge {:synced (count good), :changed changed, :sha sha, :config-errors errors}

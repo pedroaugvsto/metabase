@@ -6,8 +6,9 @@ SDK) that Metabase renders inside an isolated, sandboxed iframe at
 
 Data apps are delivered through **Git, not uploaded**: this directory lives at
 `data_apps/<slug>/` inside a repository connected to Metabase via remote sync.
-You commit the built bundle (`dist/index.js`), and on the next remote-sync
-import Metabase materializes the app and serves it. There is no upload step.
+You commit the built bundle (`dist/index.js`) and `resources/`, and on the next
+remote-sync import Metabase materializes the app and serves it. There is no
+upload step.
 
 ## Develop
 
@@ -27,18 +28,26 @@ Admin → Embedding → Embedded analytics SDK → CORS.
 ## Ship
 
 ```bash
+npm run sync-resources                # renders queries/ and actions/ into resources/
 npm run build                         # produces a single dist/index.js
 ```
 
-Commit `dist/index.js` (the `path` declared in `data_app.yaml`) along with your
-source. The app appears at `/apps/<slug>` after Metabase's next remote-sync
-import (manual "Pull changes", auto-import, or startup).
+`sync-resources` only reads from Metabase. It writes the app's collection,
+saved questions, and actions as YAML into `resources/`, adds `collection:` to
+`data_app.yaml` on its first run, and writes generated IDs into the
+definitions. Run it after any change to `queries/` or `actions/`; the build
+fails until `resources/` matches them.
+
+Commit `dist/index.js` (the `path` declared in `data_app.yaml`), `resources/`,
+and your source. The app appears at `/apps/<slug>` after Metabase's next
+remote-sync import (manual "Pull changes", auto-import, or startup), which also
+applies `resources/`.
 
 ## What's in the box
 
 ```
 .
-├── data_app.yaml           - manifest: version, name, bundle path, allowed_hosts
+├── data_app.yaml           - manifest: version, name, bundle path, allowed_hosts, collection
 ├── package.json            - @metabase/embedding-sdk-react + react/react-dom + Vite toolchain
 ├── vite.config.ts          - one-liner: `export default dataAppConfig()`
 ├── tsconfig.json
@@ -55,8 +64,10 @@ import (manual "Pull changes", auto-import, or startup).
 ```
 
 `queries/` and `actions/` are not optional: the query hooks accept only a
-`defineQuery(...)` export and `useAction` only a `defineAction(...)` export.
-Read their READMEs before the first hook call.
+`defineQuery(...)` export and `useAction` only a `defineAction(...)` export, and
+`npm run sync-resources` synchronizes exactly those two directories into
+`resources/`. Read
+their READMEs before the first hook call.
 
 The build, dev server, Near-Membrane sandbox, and bundle contract all live in
 the SDK behind `dataAppConfig()` — there's no `index.html` or separate dev entry

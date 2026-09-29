@@ -17,6 +17,14 @@ export type TableQueryInput = Omit<TestStageWithSourceSpec, "source"> & {
   source: TableSchema;
   limit?: number;
   enabled?: boolean;
+
+  /**
+   * The entity ID of the saved question this static query is published as.
+   * Running the card is what lets an app's viewers run the query at all: it sits
+   * in a collection whose permission group grants them access, which a table
+   * source cannot do. The dev preview ignores it and keeps the table source.
+   */
+  savedQuestionEntityId?: string;
 };
 
 /**

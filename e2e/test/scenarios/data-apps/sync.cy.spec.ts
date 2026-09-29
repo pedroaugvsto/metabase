@@ -1,11 +1,16 @@
+import { SAMPLE_DATABASE } from "e2e/support/cypress_sample_database";
+import type { DataApp } from "metabase-types/api";
+
 const { H } = cy;
+
+const { ORDERS_ID } = SAMPLE_DATABASE;
 
 /**
  * Drives a real remote-sync pull of a repo whose `data_apps/` covers every
  * materialization outcome, and asserts each is handled the way the backend
  * intends (see `data-apps.sync` / `data-apps.config`):
  *
- *   good/          valid config + bundle        -> materialized, served
+ *   good/          valid config + bundle        -> materialized, served, resources loaded
  *   broken-bundle/ valid config, missing bundle -> row with "Sync failed", not served
  *   bad-config/    malformed data_app.yaml       -> skipped, no row
  *   no-config/     a bundle but no data_app.yaml -> not discovered, no row
@@ -68,6 +73,18 @@ describe("scenarios > data apps > repo sync", () => {
 
     cy.request("/api/apps/good/bundle").its("status").should("eq", 200);
 
+    // The good app's resources/ were loaded with it: its collection, and the
+    // saved question in it, addressed by the entity IDs the files carry.
+    cy.request<DataApp>("/api/apps/good").then(({ body: app }) => {
+      cy.request("/api/collection/goodAppCollection0000")
+        .its("body.id")
+        .should("eq", app.resource_collection_id);
+      cy.request("/api/card/goodAppOrdersQuestion")
+        .its("body.collection_id")
+        .should("eq", app.resource_collection_id);
+      expect(app.table_ids).to.deep.eq([ORDERS_ID]);
+    });
+
     cy.request({
       url: "/api/apps/broken-bundle/bundle",
       failOnStatusCode: false,
@@ -116,13 +133,20 @@ describe("scenarios > data apps > repo sync", () => {
     H.commitToRepo("Remove the good app from the repo");
     H.configureGitAndPullChanges("read-write");
 
-    // `good` is gone; `broken-bundle` (still in the repo) survives.
+    // `good` is gone with its collection and saved question; `broken-bundle`
+    // (still in the repo) survives.
     cy.request("GET", "/api/apps").then(({ body: apps }) => {
       expect(apps.map((app: { name: string }) => app.name)).to.deep.eq([
         "broken-bundle",
       ]);
     });
     cy.request({ url: "/api/apps/good", failOnStatusCode: false })
+      .its("status")
+      .should("eq", 404);
+    cy.request({
+      url: "/api/card/goodAppOrdersQuestion",
+      failOnStatusCode: false,
+    })
       .its("status")
       .should("eq", 404);
 

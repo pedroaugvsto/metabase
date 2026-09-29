@@ -396,6 +396,7 @@ type StageClauses<TDimension, TAggregation, TFilter> = {
 type TableQueryBase<TTable> = {
   source: TTable extends TableSchema ? SourceQuerySpec<TTable> : TableSchema;
   fields?: readonly FieldReference<TTable>[];
+  savedQuestionEntityId?: string;
 } & StageClauses<
   FieldReference<TTable>,
   AnyAggregation<TTable>,

@@ -2,3 +2,4 @@ name: Good App
 description: A well-formed app that syncs cleanly
 version: 1
 path: ./index.js
+collection: goodAppCollection0000

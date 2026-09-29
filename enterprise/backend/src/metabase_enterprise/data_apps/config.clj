@@ -6,12 +6,14 @@
      description: Pipeline …    # optional — one line on what the app does
      version: 1                 # optional — data app contract version, 1 when absent
      path: dist/index.js        # bundle path, relative to this app's directory
+     collection: <entity_id>    # the app's resource collection, written by `npm run sync-resources`
      allowed_hosts:             # optional — origins the sandboxed bundle may fetch/XHR
        - https://api.example.com
        - https://*.internal.acme.com"
   (:require
    [clojure.java.io :as io]
    [clojure.string :as str]
+   [metabase.models.serialization :as serdes]
    [metabase.util :as u]
    [metabase.util.i18n :refer [tru]]
    [metabase.util.yaml :as yaml])
@@ -145,6 +147,14 @@
            distinct
            vec))))
 
+(defn- parse-collection
+  [raw ^String dir]
+  (when-not (serdes/entity-id? raw)
+    (throw (ex-info (tru "{0}/{1}: \"collection\" must be the entity ID of the app''s resource collection. Run `npm run sync-resources` to create it."
+                         dir config-file-name)
+                    {:status-code 400})))
+  raw)
+
 (defn- path-traversal? [path]
   (some #(= ".." %) (str/split path #"/")))
 
@@ -174,12 +184,12 @@
 (defn parse-app-config
   "Parse the bytes of one `data_app.yaml` from the app directory `dir` (e.g.
    `data_apps/sales`) into `{:slug ..., :display_name ..., :description ...,
-   :version ..., :path ..., :allowed_hosts [...]}`. The slug is the directory's
+   :version ..., :path ..., :allowed_hosts [...], :collection ...}`. The slug is the directory's
    name; `path` is relative to the directory; `:description` is an optional
    one-liner (nil when absent or blank, capped at [[max-description-chars]]);
    `:version` is the contract version the app was built for (1 when absent);
    `:allowed_hosts` is a (possibly empty) vector of origins the sandboxed bundle
-   may reach. Throws an
+   may reach; `:collection` is the entity ID of the app's resource collection. Throws an
    `ex-info` with `:status-code` 400 on malformed or incomplete content — including
    a directory whose name isn't a usable slug, since that app has no URL to be served at."
   [^bytes bytes ^String dir]
@@ -210,4 +220,5 @@
      :description   description
      :version       version
      :path          path
-     :allowed_hosts allowed-hosts}))
+     :allowed_hosts allowed-hosts
+     :collection    (parse-collection (:collection parsed) dir)}))

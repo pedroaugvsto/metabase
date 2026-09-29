@@ -8,15 +8,21 @@
 (defn- ->bytes ^bytes [^String s]
   (.getBytes s "UTF-8"))
 
+(def ^:private collection "salesCollection000000")
+
 (defn- parse
   "Parse a `data_app.yaml` as if it sat in `dir` (default `data_apps/sales`, so the
-   parsed slug is `sales` — the slug is the directory's name, never a config key)."
+   parsed slug is `sales` — the slug is the directory's name, never a config key).
+   Appends a `collection` unless `s` declares one."
   ([s] (parse s "data_apps/sales"))
-  ([s dir] (data-app.config/parse-app-config (->bytes s) dir)))
+  ([s dir] (data-app.config/parse-app-config
+            (->bytes (cond-> s
+                       (not (re-find #"(?m)^collection:" s)) (str "\ncollection: " collection)))
+            dir)))
 
 (deftest parse-valid-config-test
   (is (= {:slug "sales" :display_name "Sales dashboard" :description nil :version 1
-          :path "dist/index.js" :allowed_hosts []}
+          :path "dist/index.js" :allowed_hosts [] :collection collection}
          (parse "name: Sales dashboard
 path: ./dist/index.js"))))
 
@@ -105,7 +111,8 @@ path: ./dist/index.js"))))
 
 (deftest unknown-fields-are-ignored-test
   (testing "unknown keys don't fail the parse — including a stray `slug`, which the directory name overrides"
-    (is (= {:slug "sales" :display_name "X" :description nil :version 1 :path "dist/index.js" :allowed_hosts []}
+    (is (= {:slug "sales" :display_name "X" :description nil :version 1 :path "dist/index.js" :allowed_hosts []
+            :collection collection}
            (parse "name: X\nslug: elsewhere\nfuture_option: 1\npath: dist/index.js")))))
 
 (deftest parse-errors-test
@@ -127,6 +134,18 @@ path: ./dist/index.js"))))
     (doseq [slug ["repo-status" "sandbox-host"]]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"reserved slug"
                             (parse "name: X\npath: dist/index.js" (str "data_apps/" slug)))))))
+
+(deftest parse-collection-test
+  (testing "the resource collection's entity ID is carried through"
+    (is (= "otherCollection000000" (:collection (parse "name: X\npath: dist/index.js\ncollection: otherCollection000000")))))
+  (testing "an app without one is told how to create it"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"\"collection\" must be the entity ID.*npm run sync-resources"
+                          (data-app.config/parse-app-config (->bytes "name: X\npath: dist/index.js") "data_apps/sales"))))
+  (testing "anything but an entity ID is rejected"
+    (doseq [bad ["short" "'123456789012345678901234'" "[a]" "has spaces in it abcde"]]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"\"collection\" must be the entity ID"
+                            (parse (str "name: X\npath: dist/index.js\ncollection: " bad)))
+          (str "should reject: " bad)))))
 
 (deftest parse-errors-carry-400-test
   (try

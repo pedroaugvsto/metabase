@@ -3,7 +3,7 @@
    [clojure.test :refer :all]
    [metabase-enterprise.advanced-permissions.models.permissions.block-permissions :as block-perms]
    [metabase-enterprise.data-apps.permissions :as data-app.permissions]
-   [metabase-enterprise.data-apps.resources :as data-app.resources]
+   [metabase-enterprise.data-apps.test-util :as data-apps.tu]
    [metabase.lib.core :as lib]
    [metabase.lib.metadata :as lib.metadata]
    [metabase.permissions-rest.data-permissions.graph :as data-perms.graph]
@@ -14,7 +14,7 @@
 (defn- app-group!
   [name]
   (:permission_group_id
-   (data-app.resources/ensure-resources!
+   (data-apps.tu/ensure-resources!
     (t2/insert-returning-instance! :model/DataApp
                                    {:name name :display_name name :bundle_path (str "data_apps/" name "/index.js")}))))
 
@@ -107,7 +107,7 @@
             app (t2/select-one :model/DataApp :permission_group_id group-id)]
         (doseq [id [group-id other-group-id]]
           (perms/set-database-permission! id db-id :perms/manage-database :yes))
-        (data-app.resources/ensure-resources! app)
+        (data-apps.tu/ensure-resources! app)
         (is (= :no (database-permission-value group-id db-id :perms/manage-database)))
         (is (= :yes (database-permission-value other-group-id db-id :perms/manage-database)))))))
 

@@ -16,13 +16,15 @@ data_apps/
   sales/                   # the directory name is the slug: /apps/sales
     data_app.yaml
     dist/index.js          # the built bundle, committed
+    resources/             # the app's collection, saved questions, and actions, as serdes YAML
   ops/
     data_app.yaml
     dist/app.js
+    resources/
 ```
 
-`data_app.yaml` declares the display name and the bundle path relative to the app's own directory,
-plus three optional fields: a one-line `description` shown beside the name in the admin UI, the
+`data_app.yaml` declares the display name, the bundle path relative to the app's own directory, and
+`collection`, the entity ID of the app's resource collection, plus three optional fields: a one-line `description` shown beside the name in the admin UI, the
 `version` of the data app contract the app was built for (1 when absent; an app below the version
 this Metabase serves is outdated — badged for admins, hidden from everyone else, and a 409 to open),
 and the origins the sandboxed bundle may `fetch`/XHR. See `config.clj` for the format and its
@@ -41,7 +43,7 @@ and calls `data-apps.sync/sync-from-snapshot!`.
 
 ```
 remote-sync import  →  snapshot  →  sync-from-snapshot!  →  discover configs
-                                                         →  materialize each app
+                                                         →  materialize each app, loading its resources/
                                                          →  prune apps absent from the repo
 ```
 
@@ -60,7 +62,7 @@ consequences are worth stating explicitly, because they're the questions that co
 
 | Event                               | What happens to apps                                                      |
 | ----------------------------------- | ------------------------------------------------------------------------- |
-| App directory removed from the repo | Row and cached bundle deleted on the next sync                            |
+| App directory removed from the repo | Row, cached bundle, collection, and its contents deleted on the next sync |
 | Repo switched to a different one    | Previous repo's apps are absent from the new snapshot, so they're dropped |
 | Repo unlinked                       | Nothing — unlinking runs no sync, so apps survive                         |
 | Repo has no `data_apps/` at all     | All apps removed                                                          |
@@ -69,7 +71,27 @@ consequences are worth stating explicitly, because they're the questions that co
 Pruning is by **directory presence**, not by successful parse. An app whose directory is still
 there but whose `data_app.yaml` is momentarily broken keeps its row and its last-good bundle, and is
 marked with a `sync_error` — see failure isolation below. Local `enabled` state does not protect a
-row: an app disabled in the admin UI and then deleted from the repo is still removed.
+row: an app disabled in the admin UI and then deleted from the repo is still removed, and so are its
+collection, saved questions, and actions.
+
+## Resources
+
+An app's saved questions, the copies of the metrics and models they use, and the copies of the
+actions it runs live in its resource collection. `npm run sync-resources` renders them with
+`POST /api/apps/resources/render` (`render.clj`) and commits them as serdes YAML under the app's
+`resources/`; every import loads them (`resource_load.clj`). So the repository owns them:
+
+- **Every import reloads them.** An edit or trash made in Metabase is put back, and a card or action
+  whose file is gone is deleted. A card moved out of the collection is no longer the app's, so the
+  import refuses it rather than take it back.
+- **The load is confined to the app.** Serdes load updates whatever row carries an entity ID and
+  resolves references to any local entity, so before writing anything the import checks that the
+  files hold exactly the collection `data_app.yaml` names, cards in it, and actions on its models;
+  that every existing entity they name already belongs to the app; and that they reference nothing
+  else but databases, tables, fields, snippets, segments, and measures that exist. A missing table
+  fails the load instead of being created. Cards and actions are owned by Metabase's internal user.
+- **The collection is not remote-synced**, so remote sync never tracks, exports, or merges it, and a
+  remote-synced entity that depends on an app card can't be exported.
 
 ## Failure isolation
 
@@ -79,8 +101,10 @@ failures are recorded per app rather than thrown:
 - **Malformed `data_app.yaml`** — collected into `:config-errors`. An app that already has a row is
   marked with `sync_error` (so the UI shows it as failed rather than silently presenting the
   last-good bundle as freshly synced); an app that has no row yet is simply not materialized.
-- **Bundle missing or over the size cap** — the row's metadata is still upserted with `sync_error`
-  set, and the previously cached bundle is kept.
+- **Bundle missing or over the size cap, or resource files invalid** — the row's metadata is still
+  upserted with `sync_error` set, and the previously cached bundle and loaded resources are kept.
+- **Resources that fail to load** — the app's transaction rolls back to its savepoint, leaving its
+  previous bundle and resources in place, and `sync_error` records why.
 - **Anything thrown at all** — `sync-from-snapshot!` catches and logs it, returning nil, so a
   data-app failure can't break the surrounding remote-sync import.
 
@@ -109,6 +133,9 @@ assets (`metabase.server.routes/static-files-handler`).
   carrying the CSP that confines `'unsafe-eval'` to that realm.
 - `PUT /api/apps/:slug` — toggle `enabled` (superuser).
 - `DELETE /api/apps/:slug` — drop a row, its bundle, and its owned resources (superuser).
+- `POST /api/apps/resources/render` — render an app's resource files from its query and action
+  definitions, writing nothing. Allowed to anyone who can run every query and read every action and
+  its model.
 - `GET /api/apps/repo-status` — whether a repo is connected (superuser).
 
 Responses are field-filtered by role: superusers get full metadata, everyone else gets `name` and
@@ -121,9 +148,9 @@ middleware's lookup doesn't pull in route code.
 
 ## Permissions
 
-Each app owns two server-managed resources (`resources.clj`), created on first import and
-reasserted on every sync: a **collection** holding the copies the app is served from (saved
-questions, action models, table-sourced metrics) and a **permissions group** its users belong to.
+Each app has two resources (`resources.clj`), reasserted on every sync: a **collection** holding
+what the app is served from (saved questions, action models, table-sourced metrics), loaded from its
+`resources/`, and a server-managed **permissions group** its users belong to.
 
 The group is set database-level `view-data :blocked` on every database, so it grants **no data
 access of its own** (which cascades `create-queries`/`download-results` to `:no`); every group but
@@ -140,7 +167,7 @@ view-data of its own, so a viewer without access to an app's tables (e.g. a sand
 data from it — their own groups' permissions and sandboxes apply unchanged. Because the group grants
 nothing, it can never lift another group's sandbox, so sandboxing needs no data-app special-casing.
 
-**Managing is superuser-only** — enabling, disabling, deleting, and repo status.
+**Managing is superuser-only** — enabling, disabling, deleting, permission warnings, and repo status.
 
 ## Namespace map
 
@@ -149,7 +176,11 @@ nothing, it can never lift another group's sandbox, so sandboxing needs no data-
 | `sync.clj`            | Discovery, materialization, pruning. The entry point remote-sync calls.                             |
 | `config.clj`          | `data_app.yaml` parsing and validation; the `data_apps/` layout constants.                          |
 | `api.clj`             | The `/api/apps` endpoints, bundle serving, ETag handling.                                           |
-| `resources.clj`       | Lifecycle of the app-owned collection and permission group: creation, view-data blocking, deletion. |
+| `resources.clj`       | The app's permission group, and its link to the resource collection: view-data blocking, deletion.  |
+| `resource_files.clj`  | The `resources/` layout, parsing, and the entity IDs of copies.                                     |
+| `resource_load.clj`   | Validating and loading an app's resource files, pruning, and recording the tables they read.       |
+| `render.clj`          | Rendering resource files from query and action definitions.                                         |
+| `core.clj`            | What other modules may ask: which cards are an app's resources.                                     |
 | `models/data_app.clj` | The `:model/DataApp` Toucan model, permissions, blob coercion.                                      |
 | `csp.clj`             | `allowed_hosts` lookup for the core CSP middleware.                                                 |
 | `init.clj`            | Loads the above so endpoints, models, and hooks register.                                           |

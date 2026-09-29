@@ -13,6 +13,7 @@
   (:require
    [clojure.set :as set]
    [clojure.string :as str]
+   [metabase-enterprise.data-apps.core :as data-apps]
    [metabase-enterprise.remote-sync.db :as remote-sync.db]
    [metabase-enterprise.remote-sync.settings :as rs-settings]
    [metabase-enterprise.transforms-python.core :as transforms-python]
@@ -20,7 +21,8 @@
    [metabase.collections.models.collection :as collection]
    [metabase.models.serialization :as serdes]
    [metabase.settings.core :as setting]
-   [metabase.util :as u]))
+   [metabase.util :as u]
+   [metabase.util.i18n :refer [tru]]))
 
 (set! *warn-on-reflection* true)
 
@@ -1216,6 +1218,16 @@
 (def ^:private models-traversed-but-not-stored
   "Models git sync walks through but never writes."
   #{"Table" "Field"})
+
+(defn check-no-data-app-resources!
+  "Throw when `card-ids` include a data app's resource cards. Only the app's own repository files define those, so a
+  remote-synced entity that depends on one can't be exported. Checked when writing to the repository, not when
+  reading local state for a pull, so a pull can still bring the fix."
+  [card-ids]
+  (when-let [resource-ids (not-empty (data-apps/resource-card-ids card-ids))]
+    (throw (ex-info (tru "Remote-synced content uses data app resources, which only a data app''s repository files can define (cards {0})."
+                         (str/join ", " (sort resource-ids)))
+                    {:status-code 400}))))
 
 (defn exportable-entities
   "What a full export would serialize: a map of {model-name [id ...]} — the export roots plus their transitive

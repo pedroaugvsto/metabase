@@ -3,6 +3,7 @@
   additional logic, so the rest of the module only touches `toucan2.core` for model definitions and hydration methods."
   (:require
    [metabase-enterprise.data-apps.schema :as data-apps.schema]
+   [metabase.config.core :as config]
    [metabase.util :as u]
    [metabase.util.malli :as mu]
    [metabase.util.malli.schema :as ms]
@@ -49,12 +50,25 @@
   "The sync-relevant columns of every DataApp."
   []
   (t2/select [:model/DataApp :name :display_name :description :version :allowed_hosts :bundle_path
-              :bundle_hash :sync_error]))
+              :bundle_hash :resources_hash :sync_error]))
+
+(defn table-database-id
+  "The database ID for the Table with `table-id`, or nil."
+  [table-id]
+  (t2/select-one-fn :db_id :model/Table :id table-id
+                    {:from [(warehouse-schema-overlay/table-query {:user-settings? false})]}))
 
 (defn users-for-permission-warnings
   "The fields needed to calculate permission warnings for Users with `user-ids`."
   [user-ids]
   (t2/select [:model/User :id :is_superuser :is_active :tenant_id] :id [:in user-ids]))
+
+(defn metrics-by-ids
+  "The metric Cards with `metric-ids`."
+  [metric-ids]
+  (if (seq metric-ids)
+    (t2/select :model/Card :id [:in metric-ids] :type "metric")
+    []))
 
 (mu/defn data-app-exists?
   "Whether a DataApp named `slug` exists."
@@ -92,6 +106,19 @@
   "Delete every DataApp, returning the number deleted."
   []
   (t2/delete! :model/DataApp))
+
+(defn resource-card-ids
+  "The IDs among `card-ids` of cards in a collection linked to a data app."
+  [card-ids]
+  (into #{}
+        (comp (partition-all 1000)
+              (mapcat (fn [ids]
+                        (t2/query {:select [:c.id]
+                                   :from   [[:report_card :c]]
+                                   :join   [[:data_app :d] [:= :d.resource_collection_id :c.collection_id]]
+                                   :where  [:in :c.id ids]})))
+              (map :id))
+        card-ids))
 
 (defn permission-group
   "The permission group with `group-id`, or nil."
@@ -138,15 +165,98 @@
   [collection-id]
   (t2/select-one :model/Collection :id collection-id))
 
-(defn insert-resource-collection!
-  "Insert a resource collection and return it."
-  [row]
-  (t2/insert-returning-instance! :model/Collection row))
+(defn collection-id-by-entity-id
+  "The ID of the collection with `entity-id`, or nil."
+  [entity-id]
+  (t2/select-one-pk :model/Collection :entity_id entity-id))
 
-(defn update-resource-collection!
-  "Apply `changes` to the resource collection with `collection-id`."
-  [collection-id changes]
-  (t2/update! :model/Collection :id collection-id changes))
+(defn collections-by-entity-ids
+  "The `:id` and `:entity_id` of the collections with `entity-ids`."
+  [entity-ids]
+  (if (seq entity-ids)
+    (t2/query {:select [:id :entity_id] :from [:collection] :where [:in :entity_id entity-ids]})
+    []))
+
+(defn cards-by-entity-ids
+  "The `:entity_id` and `:collection_id` of the cards with `entity-ids`."
+  [entity-ids]
+  (if (seq entity-ids)
+    (t2/query {:select [:entity_id :collection_id] :from [:report_card] :where [:in :entity_id entity-ids]})
+    []))
+
+(defn actions-by-entity-ids
+  "The `:entity_id` of the actions with `entity-ids`, with the `:collection_id` of the model each belongs to."
+  [entity-ids]
+  (if (seq entity-ids)
+    (t2/query {:select [:a.entity_id :c.collection_id]
+               :from   [[:action :a]]
+               :join   [[:report_card :c] [:= :c.id :a.model_id]]
+               :where  [:in :a.entity_id entity-ids]})
+    []))
+
+(defn collection-card-ids
+  "The IDs of the cards in the collection with `collection-id`, except those whose entity ID is in `keep-entity-ids`."
+  [collection-id keep-entity-ids]
+  (mapv :id (t2/query {:select [:id]
+                       :from   [:report_card]
+                       :where  (cond-> [:and [:= :collection_id collection-id]]
+                                 (seq keep-entity-ids) (conj [:not-in :entity_id keep-entity-ids]))})))
+
+(defn collection-action-ids
+  "The IDs of the actions on models in the collection with `collection-id`, except those whose entity ID is in
+  `keep-entity-ids`."
+  [collection-id keep-entity-ids]
+  (mapv :id (t2/query {:select [:a.id]
+                       :from   [[:action :a]]
+                       :join   [[:report_card :c] [:= :c.id :a.model_id]]
+                       :where  (cond-> [:and [:= :c.collection_id collection-id]]
+                                 (seq keep-entity-ids) (conj [:not-in :a.entity_id keep-entity-ids]))})))
+
+(defn delete-cards!
+  "Delete the cards with `card-ids`."
+  [card-ids]
+  (t2/delete! :model/Card :id [:in card-ids]))
+
+(defn delete-actions!
+  "Delete the actions with `action-ids`."
+  [action-ids]
+  (t2/delete! :model/Action :id [:in action-ids]))
+
+(defn collection-dataset-queries
+  "The queries of the cards in the collection with `collection-id` and of the query actions on its models."
+  [collection-id]
+  (let [card-queries (t2/select-fn-vec :dataset_query :model/Card :collection_id collection-id)
+        model-ids    (t2/select-pks-vec :model/Card :collection_id collection-id :type "model")]
+    (into card-queries
+          (when (seq model-ids)
+            (t2/select-fn-vec :dataset_query :model/QueryAction
+                              {:select [:qa.*]
+                               :from   [[:query_action :qa]]
+                               :join   [[:action :a] [:= :a.id :qa.action_id]]
+                               :where  [:in :a.model_id model-ids]})))))
+
+(defn card
+  "The Card with `card-id`, or nil."
+  [card-id]
+  (t2/select-one :model/Card :id card-id))
+
+(defn action
+  "The unarchived Action with `action-id`, or nil."
+  [action-id]
+  (t2/select-one :model/Action :id action-id :archived false))
+
+(defn action-children
+  "The type-specific rows of the Action with `action-id`, keyed as serdes nests them."
+  [action-id]
+  {:query    (t2/select :model/QueryAction :action_id action-id)
+   :implicit (t2/select :model/ImplicitAction :action_id action-id)
+   :http     (t2/select :model/HTTPAction :action_id action-id)})
+
+(defn internal-user-email
+  "The email of Metabase's internal user, which owns the cards and actions data apps load."
+  []
+  (or (t2/select-one-fn :email :model/User :id config/internal-mb-user-id)
+      (throw (ex-info "The internal user is missing." {}))))
 
 (defn delete-resource-collection!
   "Delete the resource collection with `collection-id`."

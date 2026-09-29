@@ -1,0 +1,35 @@
+## Data apps load their resources (collection, cards, actions) from serdes YAML under `data_apps/<slug>/resources/`.
+##
+## `resources_hash` records what an import last loaded, so a pull that only changes an app's resources counts as a
+## change. The unique constraint keeps two apps from sharing one resource collection, which would hand each app's
+## group the other's content and delete it with either app.
+
+databaseChangeLog:
+  - changeSet:
+      id: v65.2026-09-24T00:00:00
+      author: timofei
+      comment: Add resources_hash column to data_app
+      changes:
+        - addColumn:
+            tableName: data_app
+            columns:
+              - column:
+                  name: resources_hash
+                  type: varchar(64)
+                  remarks: SHA-256 of the resource files the last import loaded
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: data_app
+            columnName: resources_hash
+
+  - changeSet:
+      id: v65.2026-09-24T00:00:01
+      author: timofei
+      comment: Make data_app.resource_collection_id unique
+      changes:
+        - addUniqueConstraint:
+            tableName: data_app
+            columnNames: resource_collection_id
+            constraintName: idx_data_app_resource_collection_id_unique

@@ -1,0 +1,6 @@
+name: 'Data App: Broken Bundle'
+entity_id: brokenBundleColl00001
+serdes/meta:
+- id: brokenBundleColl00001
+  label: data_app_broken_bundle
+  model: Collection

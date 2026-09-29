@@ -20,6 +20,7 @@
    [:bundle_path     {:optional true} [:maybe :string]]
    [:bundle          {:optional true} [:maybe [:or bytes? :string]]]
    [:bundle_hash     {:optional true} [:maybe :string]]
+   [:resources_hash  {:optional true} [:maybe :string]]
    [:last_synced_sha {:optional true} [:maybe :string]]
    [:last_synced_at  {:optional true} [:maybe ms/TemporalInstant]]
    [:sync_error      {:optional true} [:maybe :string]]

@@ -3644,23 +3644,35 @@
 
   enterprise/data-apps
   {:team "Embedding"
-   :api #{metabase-enterprise.data-apps.api metabase-enterprise.data-apps.init metabase-enterprise.data-apps.sync}
+   :api #{metabase-enterprise.data-apps.api
+          metabase-enterprise.data-apps.core
+          metabase-enterprise.data-apps.init
+          metabase-enterprise.data-apps.sync}
    :uses #{api
            api-scope
-           collections
+           lib
+           lib.be
            lib.schema
            models
            permissions
            premium-features
-           request
+           query-permissions
+           search
            settings
            util
-           warehouse-schema-overlay}
-   :model-imports #{:model/Collection
+           util.config
+           warehouse-schema-overlay
+           enterprise/serialization}
+   :model-imports #{:model/Action
+                    :model/Card
+                    :model/Collection
                     :model/DataPermissions
                     :model/Database
+                    :model/HTTPAction
+                    :model/ImplicitAction
                     :model/Permissions
                     :model/PermissionsGroup
+                    :model/QueryAction
                     :model/Table
                     :model/User}}
 

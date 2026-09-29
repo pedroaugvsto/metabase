@@ -198,11 +198,15 @@ function NativeQueryPage() {
 }
 
 function Actions() {
-  const { actionId, actionParams } = getTestEnv();
-  // A data app names its actions by definition.
+  const { actionId, actionEntityId, actionParams } = getTestEnv();
+  // A data app names its actions by definition. Nothing synchronizes here, so
+  // the copy the definition points at is the authored action itself.
   const action = useAction(
     actionId
-      ? defineAction({ action: { id: actionId, parameters: [] } })
+      ? defineAction({
+          action: { id: actionId, parameters: [] },
+          copiedActionEntityId: actionEntityId,
+        })
       : null,
   );
   const [output, setOutput] = useState("idle");

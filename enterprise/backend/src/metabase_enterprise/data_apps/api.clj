@@ -10,6 +10,8 @@
    [clojure.string :as str]
    [metabase-enterprise.data-apps.config :as data-app.config]
    [metabase-enterprise.data-apps.db :as data-apps.db]
+   [metabase-enterprise.data-apps.query-definition :as query-definition]
+   [metabase-enterprise.data-apps.render :as data-app.render]
    [metabase-enterprise.data-apps.sync :as data-app.sync]
    [metabase-enterprise.data-apps.user-access :as data-app.user-access]
    [metabase.api-scope.data-app :as api-scope]
@@ -110,6 +112,29 @@
   [:map
    [:configured :boolean]
    [:url [:maybe :string]]])
+
+(def ^:private RenderRequest
+  [:map {:closed true}
+   [:collection [:map {:closed true}
+                 [:entity_id ms/NanoIdString]
+                 [:name      ms/NonBlankString]]]
+   [:queries [:sequential [:map {:closed true}
+                           [:entity_id ms/NanoIdString]
+                           [:name      ms/NonBlankString]
+                           [:query     ::query-definition/query-definition]]]]
+   [:actions [:sequential [:map {:closed true}
+                           [:id ms/PositiveInt]]]]])
+
+(def ^:private RenderResponse
+  [:map {:closed true}
+   [:files [:sequential [:map {:closed true}
+                         [:path      ms/NonBlankString]
+                         [:content   :string]
+                         [:model     [:enum "Collection" "Card" "Action"]]
+                         [:entity_id ms/NanoIdString]]]]
+   [:actions [:sequential [:map {:closed true}
+                           [:id        ms/PositiveInt]
+                           [:entity_id ms/NanoIdString]]]]])
 
 (def ^:private PermissionWarningsRequest
   [:map {:closed true}
@@ -272,6 +297,15 @@
     (api/check-400 (every? (comp nil? :tenant_id) users)
                    (tru "Tenant users cannot be added to data apps."))
     (data-app.user-access/permission-warnings (:table_ids app) users)))
+
+(api.macros/defendpoint :post "/resources/render" :- RenderResponse
+  "Render the resource files a data app commits under `resources/`: its collection, a saved question per query
+   definition, and copies of the metrics, models, and actions those use. Writes nothing; the files take effect when
+   the repository is next imported. Requires permission to run every query and read every action and its model."
+  [_route-params
+   _query-params
+   {:keys [collection queries actions]} :- RenderRequest]
+  (data-app.render/render collection queries (map :id actions)))
 
 ;; Not tagged `data-apps:base`, though the bundle route below is — which looks backwards until
 ;; you place the two callers. `DataAppView` fetches this metadata on the *host* page to decide
