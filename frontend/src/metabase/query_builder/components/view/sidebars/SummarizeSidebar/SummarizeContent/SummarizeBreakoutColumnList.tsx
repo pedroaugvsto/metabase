@@ -12,19 +12,4 @@ export const SummarizeBreakoutColumnList = ({
   onQueryChange,
   stageIndex,
   ...containerProps
-}: SummarizeBreakoutColumnListProps) => (
-  <Stack
-    data-testid="summarize-breakout-column-list"
-    h="100%"
-    gap="0"
-    {...containerProps}
-  >
-    <Title order={5} fw={900}>{t`Group by`}</Title>
-    <Space my="sm" />
-    <BreakoutColumnList
-      query={query}
-      onQueryChange={onQueryChange}
-      stageIndex={stageIndex}
-    />
-  </Stack>
-);
+}: SummarizeBreakoutColumnListProps) => null;
