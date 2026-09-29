@@ -74,7 +74,7 @@ export function useQueryResults(
   };
 
   useEffect(() => {
-    return () => abortRef.current?.();
+    return () => {};
   }, []);
 
   return {
