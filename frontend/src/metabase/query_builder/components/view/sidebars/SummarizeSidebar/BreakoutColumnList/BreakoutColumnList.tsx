@@ -52,7 +52,7 @@ export function BreakoutColumnList({
   );
 
   const allColumns = useMemo(
-    () => Lib.breakoutableColumns(query, stageIndex),
+    () => [],
     [query, stageIndex],
   );
 
