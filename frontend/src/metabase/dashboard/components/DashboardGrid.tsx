@@ -595,37 +595,7 @@ class DashboardGridInner extends Component<
     gridItemWidth: number;
     totalNumGridCols: number;
   }) => {
-    const { isEditing, autoScrollToDashcardId } = this.props;
-    const shouldAutoScrollTo = autoScrollToDashcardId === dc.id;
-
-    const shouldChangeResizeHandle = isEditingTextOrHeadingCard(
-      dc.card.display,
-      isEditing,
-    );
-
-    return (
-      <Box
-        key={String(dc.id)}
-        data-testid="dashcard-container"
-        className={cx(
-          DashboardS.DashCard,
-          EmbedFrameS.DashCard,
-          LegendS.DashCard,
-          S.DashboardCardContainer,
-          {
-            [DashboardS.BrandColorResizeHandle]: shouldChangeResizeHandle,
-            [S.isAnimationDisabled]: this.state.isAnimationPaused,
-          },
-        )}
-      >
-        {this.renderDashCard(dc, {
-          isMobile: breakpoint === "mobile",
-          gridItemWidth,
-          totalNumGridCols,
-          shouldAutoScrollTo,
-        })}
-      </Box>
-    );
+    return {};
   };
 
   renderGrid() {
