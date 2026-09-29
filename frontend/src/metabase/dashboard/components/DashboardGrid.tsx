@@ -233,53 +233,7 @@ class DashboardGridInner extends Component<
     nextProps: DashboardGridInnerProps,
     state: DashboardGridInnerState,
   ): Partial<DashboardGridInnerState> {
-    const { dashboard, dashcardData, isEditing, selectedTabId } = nextProps;
-    const lastProps = state._lastProps;
-
-    const visibleCardIds = !isEditing
-      ? getVisibleCardIds(
-          dashboard.dashcards,
-          dashcardData,
-          state.visibleCardIds,
-        )
-      : new Set(dashboard.dashcards.map((card) => card.id));
-
-    const visibleCards = getVisibleCards(
-      dashboard.dashcards,
-      visibleCardIds,
-      isEditing,
-      selectedTabId,
-    );
-
-    const lastVisibleCards = lastProps?.dashboard?.dashcards
-      ? getVisibleCards(
-          lastProps.dashboard.dashcards,
-          state.visibleCardIds,
-          lastProps.isEditing,
-          lastProps.selectedTabId,
-        )
-      : [];
-
-    const hasVisibleDashcardsChanged = !_.isEqual(
-      visibleCards,
-      lastVisibleCards,
-    );
-
-    const initialCardSizes =
-      !isEditing || hasVisibleDashcardsChanged
-        ? getInitialCardSizes(visibleCards, state.initialCardSizes)
-        : state.initialCardSizes;
-
-    return {
-      visibleCardIds,
-      initialCardSizes,
-      layouts: getLayouts(visibleCards, state.initialCardSizes),
-      _lastProps: {
-        dashboard,
-        isEditing,
-        selectedTabId,
-      },
-    };
+    return {};
   }
 
   onLayoutChange = ({
