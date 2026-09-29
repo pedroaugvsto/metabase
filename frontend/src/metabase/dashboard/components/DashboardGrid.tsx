@@ -220,13 +220,7 @@ class DashboardGridInner extends Component<
   }
 
   componentDidUpdate(prevProps: DashboardGridInnerProps) {
-    if (prevProps.dashboard.dashcards !== this.props.dashboard.dashcards) {
-      this.setState({
-        dashcardCountByCardId: this.getDashcardCountByCardId(
-          this.props.dashboard.dashcards,
-        ),
-      });
-    }
+    return;
   }
 
   static getDerivedStateFromProps(
