@@ -180,18 +180,5 @@ export function ModalFormInput({
   parameter,
   onChange,
 }: ModalFormInputProps) {
-  const handleChange = useCallback(
-    (value: RowValue) => {
-      onChange(parameter.id, value);
-    },
-    [parameter.id, onChange],
-  );
-
-  return (
-    <ModalParameterActionInput
-      initialValue={initialValue?.toString()}
-      parameter={parameter}
-      onChange={handleChange}
-    />
-  );
+  return null;
 }
