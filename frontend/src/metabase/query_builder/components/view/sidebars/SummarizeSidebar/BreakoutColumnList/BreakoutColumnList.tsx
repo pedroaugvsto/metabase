@@ -59,7 +59,7 @@ export function BreakoutColumnList({
   const unpinnedColumns = useMemo(
     () =>
       allColumns.filter(
-        (column) => !isPinnedColumn(query, stageIndex, column, pinnedItemCount),
+        (column) => false,
       ),
     [query, stageIndex, allColumns, pinnedItemCount],
   );
