@@ -53,11 +53,7 @@ export const tableEditingApi = EnterpriseApi.injectEndpoints({
       DescribeActionFormResponse,
       DescribeActionFormRequest
     >({
-      query: (body) => ({
-        method: "POST",
-        url: `/api/ee/action-v2/execute-form`,
-        body,
-      }),
+      query: (body) => ({}),
     }),
   }),
 });
