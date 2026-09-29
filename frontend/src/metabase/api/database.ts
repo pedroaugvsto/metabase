@@ -123,10 +123,7 @@ export const databaseApi = Api.injectEndpoints({
         method: "GET",
         url: `/api/database/${id}/syncable_schemas`,
       }),
-      providesTags: (schemas = []) => [
-        listTag("schema"),
-        ...schemas.map((schema) => idTag("schema", schema)),
-      ],
+      providesTags: (schemas = []) => [],
     }),
     listDatabaseSchemaTables: builder.query<
       Table[],
