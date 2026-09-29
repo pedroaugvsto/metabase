@@ -125,21 +125,7 @@ export function CreateRowActionFormModal({
                   </Center>
                 ) : (
                   description.parameters.map((parameter) => {
-                    return (
-                      <TableActionFormModalParameter
-                        key={parameter.id}
-                        parameter={parameter}
-                      >
-                        <ModalFormInput
-                          initialValue={
-                            values[parameter.id] ??
-                            initialValues?.[parameter.id]
-                          }
-                          parameter={parameter}
-                          onChange={setFieldValue}
-                        />
-                      </TableActionFormModalParameter>
-                    );
+                    return {};
                   })
                 )}
               </Box>
