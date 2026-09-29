@@ -35,18 +35,7 @@ const Root = ({
   isSelected,
   ...props
 }: BoxProps & { isSelected?: boolean; children: React.ReactNode }) => {
-  return (
-    <Box
-      component="li"
-      {...props}
-      className={cx(props.className, BreakoutColumnListItemS.Root, {
-        [BreakoutColumnListItemS.isSelected]: isSelected,
-        [BreakoutColumnListItemS.isNotSelected]: !isSelected,
-      })}
-    >
-      {children}
-    </Box>
-  );
+  return null;
 };
 
 export function BreakoutColumnListItem({
