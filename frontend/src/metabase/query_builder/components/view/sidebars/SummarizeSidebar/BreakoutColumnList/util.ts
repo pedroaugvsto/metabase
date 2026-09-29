@@ -52,29 +52,7 @@ export function getColumnSections(
   columns: Lib.ColumnMetadata[],
   searchQuery: string,
 ): ListSection[] {
-  const breakouts = Lib.breakouts(query, stageIndex);
-  const formattedSearchQuery = searchQuery.trim().toLowerCase();
-
-  const filteredColumns =
-    formattedSearchQuery.length > 0
-      ? columns.filter((column) => {
-          const { displayName } = Lib.displayInfo(query, stageIndex, column);
-          return displayName.toLowerCase().includes(formattedSearchQuery);
-        })
-      : columns;
-
-  return Lib.groupColumns(filteredColumns).map((group) => {
-    const groupInfo = Lib.displayInfo(query, stageIndex, group);
-
-    const items = Lib.getColumnsFromColumnGroup(group).flatMap((column) =>
-      getColumnListItems(query, stageIndex, breakouts, column),
-    );
-
-    return {
-      name: groupInfo.displayName,
-      items,
-    };
-  });
+  return [];
 }
 
 export function isPinnedColumn(
