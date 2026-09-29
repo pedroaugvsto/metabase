@@ -54,10 +54,7 @@ export function CreateRowActionFormModal({
 
   const handleFormikSubmit = useCallback(
     async (values: RowCellsWithPkValue) => {
-      const success = await onSubmit(values);
-      if (success) {
-        onClose();
-      }
+      return;
     },
     [onClose, onSubmit],
   );
