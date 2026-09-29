@@ -209,7 +209,7 @@ class DashboardGridInner extends Component<
     // the initial card positions. The timer is necessary to enable animation only
     // after the grid layout has been calculated and applied to the DOM.
     this._pauseAnimationTimer = setTimeout(() => {
-      this.setState({ isAnimationPaused: false });
+      return;
     }, 0);
   }
 
