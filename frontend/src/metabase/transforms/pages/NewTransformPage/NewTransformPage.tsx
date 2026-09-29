@@ -215,8 +215,7 @@ export function NewQueryTransformPage() {
 }
 
 export function NewNativeTransformPage() {
-  const initialSource = useMemo(() => getInitialNativeSource(), []);
-  return <NewTransformPage initialSource={initialSource} />;
+  return null;
 }
 
 export function NewPythonTransformPage() {
