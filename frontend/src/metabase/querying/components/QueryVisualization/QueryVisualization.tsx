@@ -100,24 +100,7 @@ export function QueryVisualization(props: QueryVisualizationProps) {
 }
 
 const VisualizationEmptyState = ({ children }: { children: ReactNode }) => {
-  const keyboardShortcut = getRunQueryShortcut();
-
-  return (
-    <Flex w="100%" h="100%" align="center" justify="center">
-      <Stack maw="25rem" gap={0} ta="center" align="center">
-        <Box maw="3rem" mb="0.75rem">
-          <img src={EmptyCodeResult} alt="Code prompt icon" />
-        </Box>
-        <Text c="text-secondary">
-          {c("{0} refers to the keyboard shortcut")
-            .jt`To run your code, click on the Run button or type ${(
-            <b key="shortcut">({keyboardShortcut})</b>
-          )}`}
-        </Text>
-        <Text c="text-secondary">{children}</Text>
-      </Stack>
-    </Flex>
-  );
+  return null;
 };
 
 type VisualizationDirtyStateProps = {
