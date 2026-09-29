@@ -289,45 +289,7 @@ class DashboardGridInner extends Component<
     layout: ReactGridLayout.Layout[];
     breakpoint: GridBreakpoint;
   }) => {
-    const { setMultipleDashCardAttributes, isEditing } = this.props;
-
-    // We allow moving and resizing cards only on the desktop
-    // Ensures onLayoutChange triggered by window resize,
-    // won't break the main layout
-    if (!isEditing || breakpoint !== "desktop") {
-      return;
-    }
-
-    const changes: SetDashCardAttributesOpts[] = [];
-
-    layout.forEach((layoutItem) => {
-      const dashboardCard = this.getVisibleCards().find(
-        (card) => String(card.id) === layoutItem.i,
-      );
-      if (dashboardCard) {
-        const keys = ["h", "w", "x", "y"];
-        const changed = !_.isEqual(
-          _.pick(layoutItem, keys),
-          _.pick(this.getLayoutForDashCard(dashboardCard), keys),
-        );
-
-        if (changed) {
-          changes.push({
-            id: dashboardCard.id,
-            attributes: {
-              col: layoutItem.x,
-              row: layoutItem.y,
-              size_x: layoutItem.w,
-              size_y: layoutItem.h,
-            },
-          });
-        }
-      }
-    });
-
-    if (changes.length > 0) {
-      setMultipleDashCardAttributes({ dashcards: changes });
-    }
+    return;
   };
 
   getLayoutForDashCard = (dashcard: BaseDashboardCard) => {
