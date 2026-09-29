@@ -7,6 +7,7 @@ jest.mock("embedding-sdk-bundle/hooks/private/use-init-data", () => ({
   useInitDataInternal: jest.fn(),
 }));
 
+import { settlePendingUpdates } from "__support__/ui";
 import { useInitSdkTracker } from "embedding-sdk-bundle/analytics/tracker";
 import { renderWithSDKProviders } from "embedding-sdk-bundle/test/__support__/ui";
 
@@ -17,7 +18,7 @@ describe("ComponentProvider — tracker wiring", () => {
     jest.clearAllMocks();
   });
 
-  it("passes locale != null as the third argument when locale is set", () => {
+  it("passes locale != null as the third argument when locale is set", async () => {
     renderWithSDKProviders(<div />, {
       componentProviderProps: {
         authConfig: { metabaseInstanceUrl: "https://metabase.example.com" },
@@ -30,6 +31,9 @@ describe("ComponentProvider — tracker wiring", () => {
       expect.anything(),
       true,
     );
+
+    // This test asks for a locale, so its catalogue load has to finish here.
+    await settlePendingUpdates();
   });
 
   it("passes false as the third argument when locale is not set", () => {
