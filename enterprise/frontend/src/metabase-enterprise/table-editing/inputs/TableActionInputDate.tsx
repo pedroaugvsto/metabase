@@ -53,8 +53,7 @@ export const TableActionInputDate = ({
   }, [setFocused]);
 
   const handleBlur = useCallback(() => {
-    setFocused(false);
-    onBlur?.(restoreTimezone(value));
+    return;
   }, [value, onBlur, restoreTimezone]);
 
   const handleKeyUp = useCallback(
