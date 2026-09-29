@@ -111,11 +111,7 @@ export function CreateTransformModal({
   }
 
   const defaultHandleSubmit = async (values: NewTransformValues) => {
-    if (!databaseId) {
-      throw new Error("Database ID is required");
-    }
-    const transform = await createTransform(databaseId, source, values);
-    onCreate?.(transform);
+    return;
   };
 
   return (
