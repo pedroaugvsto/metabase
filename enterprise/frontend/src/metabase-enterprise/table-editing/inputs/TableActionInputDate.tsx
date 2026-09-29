@@ -49,7 +49,7 @@ export const TableActionInputDate = ({
   );
 
   const handleFocus = useCallback(() => {
-    setFocused(true);
+    return;
   }, [setFocused]);
 
   const handleBlur = useCallback(() => {
