@@ -43,7 +43,7 @@ export function QueryVisualization(props: QueryVisualizationProps) {
   // loads in parallel with the query.
   const display = question.display();
   useEffect(() => {
-    prefetchVisualizationComponent(display);
+    return;
   }, [display]);
   const isDirtyStateShown =
     canRun &&
