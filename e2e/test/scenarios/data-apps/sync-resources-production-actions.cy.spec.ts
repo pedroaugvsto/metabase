@@ -28,13 +28,18 @@ const ENTITY_ID_PATTERN = /copiedActionEntityId: "([A-Za-z0-9_-]{21})"/;
 /** The manifest as source control holds it. */
 const AUTHORED_MANIFEST = `name: ${APP_DISPLAY_NAME}\npath: ./dist/index.js\n`;
 
-/** The declaration as source control holds it, with no generated ID yet. */
-const declaration = (sourceActionId: number) =>
+/**
+ * The declaration as source control holds it, with no generated ID yet. The
+ * source action's entity ID comes from the generated schema.
+ */
+const declaration = (sourceActionId: number, sourceEntityId?: string) =>
   [
     'import { defineAction } from "@metabase/embedding-sdk-react/data-app";',
     "",
     "export const CreateScore = defineAction({",
-    `  action: { id: ${sourceActionId}, parameters: [] },`,
+    sourceEntityId === undefined
+      ? `  action: { id: ${sourceActionId}, parameters: [] },`
+      : `  action: { id: ${sourceActionId}, entityId: "${sourceEntityId}", parameters: [] },`,
     "});",
     "",
   ].join("\n");
@@ -85,7 +90,10 @@ describe(
       cy.get<number>("@modelId").then((modelId) =>
         H.createImplicitAction({ model_id: modelId, kind: "create" }).then(
           ({ body: action }) => {
-            cy.writeFile(ACTION_FILE(), declaration(action.id));
+            cy.writeFile(
+              ACTION_FILE(),
+              declaration(action.id, action.entity_id),
+            );
 
             return cy.get<string>("@apiKey").then((apiKey) =>
               syncDataAppResources(apiKey, APP_ROOT()).then(({ ok, error }) => {

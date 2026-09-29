@@ -346,6 +346,43 @@ describe("resource synchronization build check", () => {
     );
   });
 
+  it.each([
+    [
+      "a file outside the resource layout",
+      "notes.md",
+      "is not a data app resource.",
+    ],
+    [
+      "a directory outside the resource layout",
+      "extra/",
+      "is not a data app resource.",
+    ],
+    ["a file that isn't YAML", "cards/notes.txt", "is not a YAML file."],
+    ["a directory inside cards/", "cards/nested/", "is not a YAML file."],
+  ])(
+    "fails for %s, which an import would refuse",
+    async (_, entry, message) => {
+      const appRoot = await syncedApp();
+      const target = path.join(appRoot, "resources", entry);
+      if (entry.endsWith("/")) {
+        fs.mkdirSync(target);
+      } else {
+        fs.writeFileSync(target, "x");
+      }
+
+      await expect(checkResourcesSynced(appRoot)).rejects.toThrow(
+        `resources/${entry.replace(/\/$/, "")} ${message}`,
+      );
+    },
+  );
+
+  it("ignores hidden entries, as an import does", async () => {
+    const appRoot = await syncedApp();
+    fs.writeFileSync(path.join(appRoot, "resources/cards/.DS_Store"), "x");
+
+    await expect(checkResourcesSynced(appRoot)).resolves.toBeUndefined();
+  });
+
   it("fails when a query changed after it was synchronized", async () => {
     const appRoot = await syncedApp();
     const queryFile = path.join(appRoot, "queries/orders.query.ts");

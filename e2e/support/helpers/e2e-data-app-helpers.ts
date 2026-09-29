@@ -250,17 +250,18 @@ export function resetDataAppHostAppSources() {
   });
 }
 
+/** Declares one `defineAction` per source action, as the generated schema names it. */
 export function declareDataAppActions(
   appRoot: string,
-  sourceActionIds: number[],
+  sourceActions: Array<{ id: number; entity_id: string }>,
 ) {
   return cy.task("writeDataAppFiles", {
     files: {
       [actionDeclarationsFile(appRoot)]: [
         'import { defineAction } from "@metabase/embedding-sdk-react/data-app";',
-        ...sourceActionIds.map(
-          (id) =>
-            `export const Action${id} = defineAction({ action: { id: ${id}, parameters: [] } });`,
+        ...sourceActions.map(
+          ({ id, entity_id }) =>
+            `export const Action${id} = defineAction({ action: { id: ${id}, entityId: "${entity_id}", parameters: [] } });`,
         ),
       ].join("\n"),
     },

@@ -30,31 +30,56 @@ export interface ResourceFile {
   queryHash?: string;
 }
 
-const listYamlFiles = (directory: string): string[] =>
+const isVisible = (entry: fs.Dirent) => !entry.name.startsWith(".");
+
+const listVisibleEntries = (directory: string): fs.Dirent[] =>
   fs.existsSync(directory)
     ? fs
         .readdirSync(directory, { withFileTypes: true })
-        .filter((entry) => entry.isFile() && entry.name.endsWith(".yaml"))
-        .map((entry) => entry.name)
-        .sort()
+        .filter(isVisible)
+        .sort((a, b) => a.name.localeCompare(b.name))
     : [];
+
+// Metabase refuses the same layout on import, so a tree it would reject never
+// passes a sync or a build here.
+function listModelFiles(resourcesRoot: string, model: FileModel) {
+  const directory = MODEL_DIRS[model];
+
+  return listVisibleEntries(path.join(resourcesRoot, directory)).map(
+    (entry) => {
+      const filePath = `${directory}/${entry.name}`;
+
+      if (!entry.isFile() || !entry.name.endsWith(".yaml")) {
+        throw new Error(`${RESOURCES_DIR}/${filePath} is not a YAML file.`);
+      }
+
+      return { path: filePath, model };
+    },
+  );
+}
 
 function listResourcePaths(
   appRoot: string,
 ): Array<{ path: string; model: ResourceModel }> {
   const resourcesRoot = path.join(appRoot, RESOURCES_DIR);
-  const collection: Array<{ path: string; model: ResourceModel }> =
-    fs.existsSync(path.join(resourcesRoot, COLLECTION_FILE))
-      ? [{ path: COLLECTION_FILE, model: "Collection" }]
-      : [];
+  const modelDirs = new Set<string>(Object.values(MODEL_DIRS));
+  let hasCollection = false;
+
+  for (const entry of listVisibleEntries(resourcesRoot)) {
+    if (entry.name === COLLECTION_FILE && entry.isFile()) {
+      hasCollection = true;
+    } else if (!(modelDirs.has(entry.name) && entry.isDirectory())) {
+      throw new Error(
+        `${RESOURCES_DIR}/${entry.name} is not a data app resource.`,
+      );
+    }
+  }
 
   return [
-    ...collection,
-    ...FILE_MODELS.flatMap((model) =>
-      listYamlFiles(path.join(resourcesRoot, MODEL_DIRS[model])).map(
-        (name) => ({ path: `${MODEL_DIRS[model]}/${name}`, model }),
-      ),
-    ),
+    ...(hasCollection
+      ? [{ path: COLLECTION_FILE, model: "Collection" as const }]
+      : []),
+    ...FILE_MODELS.flatMap((model) => listModelFiles(resourcesRoot, model)),
   ];
 }
 

@@ -108,7 +108,7 @@ describe(
           ({ body: create }) =>
             H.createImplicitAction({ model_id: modelId, kind: "update" }).then(
               ({ body: update }) => {
-                declareDataAppActions(APP_ROOT(), [create.id, update.id]);
+                declareDataAppActions(APP_ROOT(), [create, update]);
                 return cy.wrap({ modelId, create, update }, { log: false });
               },
             ),
@@ -215,7 +215,7 @@ describe(
     it("refuses to copy a model that is based on a saved question, and writes nothing", () => {
       cy.get<number>("@modelId").then((modelId) => {
         H.createImplicitAction({ model_id: modelId, kind: "create" }).then(
-          ({ body: action }) => declareDataAppActions(APP_ROOT(), [action.id]),
+          ({ body: action }) => declareDataAppActions(APP_ROOT(), [action]),
         );
 
         cy.request<Card>(`/api/card/${modelId}`)
