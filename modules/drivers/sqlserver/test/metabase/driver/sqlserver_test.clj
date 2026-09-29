@@ -227,7 +227,7 @@
                                                                   {:user "cam", :password "toucans", :db "birddb",
                                                                    :host "localhost", :instance "MYINSTANCE"}))))))
 
-(deftest ^:parallel connection-spec-auth-modes-test
+(deftest ^:parallel connection-spec-sql-auth-mode-test
   (testing "auth-mode 'sql' (explicit or missing) → traditional user/password login, no :authentication key"
     (doseq [details [{:auth-mode "sql", :user "cam", :password "toucans", :db "birddb", :host "localhost"}
                      ;; missing :auth-mode simulates legacy connections saved before the auth-mode field existed
@@ -236,7 +236,9 @@
         (let [spec (sql-jdbc.conn/connection-details->spec :sqlserver details)]
           (is (= "cam" (:user spec)))
           (is (= "toucans" (:password spec)))
-          (is (not (contains? spec :authentication)))))))
+          (is (not (contains? spec :authentication))))))))
+
+(deftest ^:parallel connection-spec-ad-service-principal-test
   (testing "auth-mode 'ad-service-principal' → ActiveDirectoryServicePrincipal, principal id in :user, secret in :password"
     (let [spec (sql-jdbc.conn/connection-details->spec :sqlserver
                                                        {:auth-mode        "ad-service-principal"
@@ -246,7 +248,9 @@
                                                         :db               "metabase_test"})]
       (is (= "ActiveDirectoryServicePrincipal"      (:authentication spec)))
       (is (= "4e027ad8-5e10-4e05-b5a6-c071b9b61b37" (:user spec)))
-      (is (= "the-secret"                           (:password spec)))))
+      (is (= "the-secret"                           (:password spec))))))
+
+(deftest ^:parallel connection-spec-ad-service-principal-certificate-embedded-key-test
   (testing "auth-mode 'ad-service-principal-certificate': cert with embedded key, cert password goes in :password"
     (let [spec (sql-jdbc.conn/connection-details->spec :sqlserver
                                                        {:auth-mode                             "ad-service-principal-certificate"
@@ -260,7 +264,9 @@
       (is (instance? java.io.File (:clientCertificate spec)))
       (is (= "cert-pw" (:password spec)))
       (is (not (contains? spec :clientKey)))
-      (is (not (contains? spec :clientKeyPassword)))))
+      (is (not (contains? spec :clientKeyPassword))))))
+
+(deftest ^:parallel connection-spec-ad-service-principal-certificate-separate-key-test
   (testing "auth-mode 'ad-service-principal-certificate': cert + separate encrypted key file → :clientKey + :clientKeyPassword"
     (let [spec (sql-jdbc.conn/connection-details->spec :sqlserver
                                                        {:auth-mode                             "ad-service-principal-certificate"
@@ -274,7 +280,9 @@
       (is (instance? java.io.File (:clientCertificate spec)))
       (is (= "cert-pw" (:password spec)))
       (is (instance? java.io.File (:clientKey spec)))
-      (is (= "key-pw"  (:clientKeyPassword spec)))))
+      (is (= "key-pw"  (:clientKeyPassword spec))))))
+
+(deftest ^:parallel connection-spec-ad-managed-identity-user-assigned-test
   (testing "auth-mode 'ad-managed-identity' with :ad-msi-client-id → ActiveDirectoryManagedIdentity, MI id in :user"
     (let [spec (sql-jdbc.conn/connection-details->spec :sqlserver
                                                        {:auth-mode        "ad-managed-identity"
@@ -282,7 +290,9 @@
                                                         :host             "sql.example.com"
                                                         :db               "metabase_test"})]
       (is (= "ActiveDirectoryManagedIdentity"       (:authentication spec)))
-      (is (= "4e027ad8-5e10-4e05-b5a6-c071b9b61b37" (:user spec)))))
+      (is (= "4e027ad8-5e10-4e05-b5a6-c071b9b61b37" (:user spec))))))
+
+(deftest ^:parallel connection-spec-ad-managed-identity-default-test
   (testing "auth-mode 'ad-managed-identity' with blank/missing :ad-msi-client-id → default identity, no :user"
     (doseq [msi-id [nil "" "   "]]
       (testing (str ":ad-msi-client-id = " (pr-str msi-id))
