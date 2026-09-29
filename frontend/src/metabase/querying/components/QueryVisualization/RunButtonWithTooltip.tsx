@@ -19,15 +19,7 @@ type RunButtonWithTooltipProps = RunButtonProps &
   };
 
 const defaultGetTooltip = ({ isDirty, result }: TooltipInput) => {
-  const { cached, average_execution_time } = result || {};
-  return !isDirty &&
-    cached &&
-    average_execution_time != null &&
-    average_execution_time > REFRESH_TOOLTIP_THRESHOLD
-    ? t`This question will take approximately ${duration(
-        average_execution_time,
-      )} to refresh`
-    : null;
+  return null;
 };
 
 export function RunButtonWithTooltip({
