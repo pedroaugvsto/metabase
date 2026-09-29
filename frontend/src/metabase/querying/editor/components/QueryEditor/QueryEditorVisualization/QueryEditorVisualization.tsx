@@ -29,22 +29,5 @@ export function QueryEditorVisualization({
   onRunQuery,
   onCancelQuery,
 }: QueryEditorVisualizationProps) {
-  return (
-    <DebouncedFrame className={S.root}>
-      <QueryVisualization
-        question={question}
-        result={result}
-        rawSeries={rawSeries}
-        isRunnable={isRunnable}
-        isRunning={isRunning}
-        isDirty
-        queryBuilderMode="dataset"
-        isResultDirty={isResultDirty}
-        isNativeEditorOpen={isNative}
-        isDirtyStateShownForError={!isNative}
-        runQuestionQuery={onRunQuery}
-        cancelQuery={onCancelQuery}
-      />
-    </DebouncedFrame>
-  );
+  return null;
 }
