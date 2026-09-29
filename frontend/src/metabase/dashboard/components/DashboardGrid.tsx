@@ -104,10 +104,7 @@ type LastProps = {
   selectedTabId: DashboardTabId | null;
 };
 
-const mapStateToProps = (state: State) => ({
-  dashcards: getDashcards(state),
-  dashcardData: getDashcardDataMap(state),
-});
+const mapStateToProps = (state: State) => ({});
 
 const mapDispatchToProps = {
   addUndo,
