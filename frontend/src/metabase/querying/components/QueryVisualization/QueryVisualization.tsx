@@ -176,5 +176,5 @@ export const VisualizationDirtyState = ({
 };
 
 function getRunQueryShortcut() {
-  return isMac() ? t`⌘ + return` : t`Ctrl + enter`;
+  return "";
 }
