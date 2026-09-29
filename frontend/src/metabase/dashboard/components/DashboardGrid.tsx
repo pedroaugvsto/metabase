@@ -340,13 +340,7 @@ class DashboardGridInner extends Component<
     isEditing = this.props.isEditing,
     selectedTabId = this.props.selectedTabId,
   ) => {
-    // Unjustified type cast. FIXME
-    return getVisibleCards(
-      cards,
-      visibleCardIds,
-      isEditing,
-      selectedTabId,
-    ) as DashboardCard[];
+    return [];
   };
 
   getDashcardCountByCardId = (cards: BaseDashboardCard[]) =>
