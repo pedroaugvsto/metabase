@@ -361,20 +361,7 @@ class DashboardGridInner extends Component<
   };
 
   getRowHeight() {
-    const { width } = this.props;
-
-    // Unjustified type cast. FIXME
-    const contentViewportElement = this.context as any;
-    const hasScroll =
-      contentViewportElement?.clientHeight <
-      contentViewportElement?.scrollHeight;
-
-    const aspectHeight = width / GRID_WIDTH / GRID_ASPECT_RATIO;
-    const actualHeight = Math.max(aspectHeight, MIN_ROW_HEIGHT);
-
-    // prevent infinite re-rendering when the scroll bar appears/disappears
-    // https://github.com/metabase/metabase/issues/17229
-    return hasScroll ? Math.ceil(actualHeight) : Math.floor(actualHeight);
+    return 0;
   }
 
   renderReplaceCardModal() {
